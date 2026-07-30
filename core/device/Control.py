@@ -32,7 +32,7 @@ class Control:
                 self.control_instance = U2Control(self.connection)
             elif self.method == "scrcpy":
                 self.control_instance = ScrcpyControl(self.connection)
-            elif self.method == "android":
+            elif self.method in ("android", "shizuku"):
                 self.control_instance = AndroidControl(self.connection)
         else:
             if sys.platform == "win32":

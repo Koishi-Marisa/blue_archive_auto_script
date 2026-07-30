@@ -61,8 +61,8 @@
     "cafe_reward_allow_exchange_student": false,
     "cafe_reward_interaction_shot_delay": 1.0,
     "server": "官服",
-    "control_method": "android",
-    "screenshot_method": "android",
+    "screenshot_method": "shizuku",
+    "control_method": "shizuku",
     "adbIP": "127.0.0.1",
     "adbPort": "5555",
     "lesson_times": [

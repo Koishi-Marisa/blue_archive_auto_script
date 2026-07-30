@@ -70,6 +70,23 @@ def smoke_test() -> str:
     return "ok"
 
 
+def _configure_bridge(config):
+    """Switch the native bridge to Shizuku if the config requests it."""
+    try:
+        from java.lang import Class
+        bridge = Class.forName("top.qwq123.baas.bridge.BaasBridge")
+        screenshot_method = getattr(config, 'screenshot_method', None)
+        control_method = getattr(config, 'control_method', None)
+        if screenshot_method == 'shizuku' or control_method == 'shizuku':
+            bridge.setMode("SHIZUKU")
+            _android_log("Native bridge switched to SHIZUKU mode")
+        else:
+            bridge.setMode("MEDIA_PROJECTION")
+            _android_log("Native bridge using MEDIA_PROJECTION mode")
+    except Exception as e:
+        _android_log(f"Failed to configure bridge mode: {e}")
+
+
 def _run_task_loop(config_dir: str):
     """Initialize and run the BAAS scheduler loop in a background thread."""
     global _thread
@@ -80,6 +97,7 @@ def _run_task_loop(config_dir: str):
         from core.config.config_set import ConfigSet
         config = ConfigSet(config_dir=config_dir)
         _android_log(f"ConfigSet created for {config_dir}")
+        _configure_bridge(config)
     except Exception as e:
         _android_log(f"ConfigSet creation failed: {e}")
         with _thread_lock:

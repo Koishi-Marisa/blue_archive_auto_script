@@ -36,7 +36,7 @@ class Screenshot:
                 self.screenshot_instance = U2Screenshot(self.connection)
             elif self.method == "scrcpy":
                 self.screenshot_instance = ScrcpyScreenshot(self.connection)
-            elif self.method == "android":
+            elif self.method in ("android", "shizuku"):
                 self.screenshot_instance = AndroidScreenshot(self.connection)
         else:
             if sys.platform == "win32":
