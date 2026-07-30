@@ -78,7 +78,7 @@ android {
         defaultConfig {
             // Chaquopy's pre-built OpenCV wheels are currently only available for Python 3.10.
             version = "3.10"
-            buildPython("python3.10", "python3", "python")
+            buildPython("python3.10")
             pip {
                 install("-r", rootProject.file("requirements-android.txt").absolutePath)
             }
