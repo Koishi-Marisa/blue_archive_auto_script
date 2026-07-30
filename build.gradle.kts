@@ -10,4 +10,5 @@ plugins {
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.kotlin.parcelize) apply false
     alias(libs.plugins.ksp) apply false
+    id("com.chaquo.python") version "17.0.0" apply false
 }

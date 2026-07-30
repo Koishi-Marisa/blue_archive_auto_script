@@ -1,11 +1,17 @@
 import json
 import os
 import re
+from dataclasses import asdict
+
 from core.config.generated_user_config import Config
 from core.config.generated_static_config import StaticConfig
-from gui.util.customized_ui import BoundComponent
-from gui.util.translator import baasTranslator as bt
-from dataclasses import asdict
+
+try:
+    from gui.util.customized_ui import BoundComponent
+    from gui.util.translator import baasTranslator as bt
+except Exception:
+    BoundComponent = None
+    bt = None
 
 
 class ConfigSet:
@@ -56,7 +62,9 @@ class ConfigSet:
     def get(self, key, default=None):
         self._init_config()
         value = getattr(self.config, key, default)
-        return bt.tr('ConfigTranslation', value)
+        if bt is not None:
+            value = bt.tr('ConfigTranslation', value)
+        return value
 
     def has(self, key):
         self._init_config()
@@ -64,7 +72,8 @@ class ConfigSet:
 
     def set(self, key, value):
         self._init_config()
-        value = bt.undo(value)
+        if bt is not None:
+            value = bt.undo(value)
         setattr(self.config, key, value)
         self.save()
         self.dynamic_update(key)

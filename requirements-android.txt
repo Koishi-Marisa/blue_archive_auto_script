@@ -1,0 +1,16 @@
+# BAAS Android runtime dependencies (Chaquopy)
+# Avoid any GUI, ADB, Windows-only or heavy native packages.
+#
+# Chaquopy's pre-built OpenCV wheels are currently available for Python 3.10,
+# so the app module is configured to use Python 3.10 as well.
+
+numpy==1.23.3
+opencv-python==4.5.1.48
+requests
+rich>=14.2.0
+tqdm
+tomli==2.2.1
+tomli_w==1.2.0
+pillow
+# lmdb is used for some caches; optional on Android
+# lmdb

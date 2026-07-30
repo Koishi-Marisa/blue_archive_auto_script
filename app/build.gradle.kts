@@ -3,12 +3,13 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.ksp)
+    id("com.chaquo.python")
 }
-
 val localProperties = Properties().apply {
     val localPropertiesFile = rootProject.file("local.properties")
     if (localPropertiesFile.exists()) {
@@ -64,7 +65,29 @@ android {
         buildConfigField("String", "BAAS_VERSION", "\"$baasVersion\"")
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
+            val abiFilter = project.findProperty("abiFilter") as? String
+            if (abiFilter != null) {
+                abiFilters.clear()
+                abiFilters += abiFilter
+            } else {
+                abiFilters += listOf("arm64-v8a", "x86_64")
+            }
+        }
+    }
+
+    chaquopy {
+        defaultConfig {
+            // Chaquopy's pre-built OpenCV wheels are currently only available for Python 3.10.
+            version = "3.10"
+            buildPython("python3.10", "python3", "python")
+            pip {
+                install("-r", rootProject.file("requirements-android.txt").absolutePath)
+            }
+        }
+        sourceSets {
+            getByName("main") {
+                srcDir(rootProject.file("app/src/main/python"))
+            }
         }
     }
 
@@ -191,6 +214,12 @@ dependencies {
     implementation(libs.reorderable)
     implementation(libs.compose.markdown)
 
+    // OCR
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
+    implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
+    implementation("com.google.mlkit:text-recognition-korean:16.0.1")
+
     // sora-editor：JSON 语法高亮编辑器（TextMate + darcula 主题）
     implementation(platform(libs.bom))
     implementation(libs.editor)
@@ -208,9 +237,6 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 }
-
-// Apply asset manifest generation script
-apply(from = "asset-manifest.gradle.kts")
 
 // Apply i18n strings consistency gate (verifyI18nStrings hooked to preBuild)
 apply(from = "i18n-verify.gradle.kts")

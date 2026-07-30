@@ -1,8 +1,13 @@
 import re
 import sys
 
-from adbutils import adb
-from adbutils.errors import AdbTimeout, AdbError
+try:
+    from adbutils import adb
+    from adbutils.errors import AdbTimeout, AdbError
+except Exception:
+    adb = None
+    AdbTimeout = None
+    AdbError = Exception
 
 from core.exception import RequestHumanTakeOver
 
@@ -16,7 +21,15 @@ class Connection:
         self.config = self.config_set.config
         self.static_config = self.config_set.static_config
         self.server = None
-        if self.config.server in ["Steam国际服", "日服PC端"]:
+        self.serial = "android"
+        self.package = self.config.get("package_name") if hasattr(self.config, "package_name") else None
+        self.activity = None
+
+        if getattr(self.config, "screenshot_method", None) == "android" or \
+           getattr(self.config, "control_method", None) == "android":
+            self._is_android_device = True
+            self._init_android_bridge()
+        elif self.config.server in ["Steam国际服", "日服PC端"]:
             if self.config.server == "Steam国际服":
                 self.server = "Global"
             elif self.config.server == "日服PC端":
@@ -26,6 +39,23 @@ class Connection:
         else:
             self._init_android_device()
             self._is_android_device = True
+
+    def _init_android_bridge(self):
+        """Dummy connection for the in-process Android bridge."""
+        self.logger.info("Using in-process Android bridge (no ADB)")
+        server = self.config.server
+        if server in ['官服', 'B服']:
+            self.server = 'CN'
+        elif server in ['国际服', '国际服青少年', '韩国ONE', 'Steam国际服']:
+            self.server = 'Global'
+        elif server in ['日服', '日服PC端']:
+            self.server = 'JP'
+        else:
+            self.server = server
+        # Derive package and activity from static config so the rest of BAAS
+        # can resolve the target game without ADB.
+        self.package = self.static_config.package_name.get(server)
+        self.activity = self.static_config.activity_name.get(server)
 
     def _init_android_device(self):
         self.activity = None

@@ -8,9 +8,9 @@ local.properties
 .DS_Store
 *.log
 
-# Generated Android assets
+# Generated Android Python sources
+app/src/main/python/
 app/src/main/assets/baas/
-app/src/main/assets/baas/asset_manifest.json
 .baasversion
 
 # Signing

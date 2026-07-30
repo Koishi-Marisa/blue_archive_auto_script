@@ -21,6 +21,7 @@ from core.device import emulator_manager
 from core.device.Control import Control
 from core.device.Screenshot import Screenshot
 from core.device.connection import Connection
+from core.device import android_bridge
 from core.device.emulator_manager import process_api
 from core.device.uiautomator2_client import BAAS_U2_Initer, __atx_agent_version__
 from core.device.uiautomator2_client import U2Client
@@ -369,6 +370,12 @@ class Baas_thread:
         if self.server == "CN":
             self.ocr_language = "zh-cn"
         elif self.server == "Global":
+            # On the in-process Android bridge we cannot read the game data folder
+            # via ADB. Use the language configured by the user, defaulting to en-us.
+            if getattr(self.config, 'screenshot_method', None) == 'android' or \
+                    getattr(self.config, 'control_method', None) == 'android':
+                self.ocr_language = getattr(self.config, 'ocr_language', 'en-us')
+                return
             basic_path = self.u2._adb_device.shell(f"echo $EXTERNAL_STORAGE").strip()
             src = "/".join([
                 basic_path,
@@ -1095,6 +1102,16 @@ class Baas_thread:
         raise Exception("Invalid Screen Ratio")
 
     def _get_android_device_resolution(self):
+        # When using the in-process Android bridge, there is no ADB / uiautomator2.
+        # Fall back to the native screenshot size.
+        if getattr(self.config, 'screenshot_method', None) == 'android' or \
+                getattr(self.config, 'control_method', None) == 'android':
+            size = android_bridge.screenshot_size()
+            if size:
+                width, height = size
+                if width < height:
+                    width, height = height, width
+                return width, height
         self.u2_client = U2Client.get_instance(self.serial)
         self.u2 = self.u2_client.get_connection()
         self.check_atx()

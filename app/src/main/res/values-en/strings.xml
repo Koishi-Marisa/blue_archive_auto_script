@@ -1,5 +1,7 @@
 <resources>
     <string name="app_name">BAAS</string>
+    <string name="start_task">Start Task</string>
+    <string name="stop_task">Stop Task</string>
     <string name="volume_key_service_description">Double-tap volume down to toggle the control panel</string>
     <string name="accessibility_helper_service_description">Accessibility helper: double-tap volume down to toggle the control panel</string>
     <string name="common_confirm">Confirm</string>
