@@ -1,12 +1,9 @@
 package top.qwq123.baas.shizuku
 
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
-import android.os.ParcelFileDescriptor
 import android.os.RemoteException
-import android.util.Log
 import rikka.shizuku.Shizuku
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import java.nio.charset.Charset
 
 /**
@@ -26,7 +23,7 @@ object ShizukuHelper {
     /** True if the user has granted permission to this app. */
     fun isGranted(): Boolean {
         return try {
-            Shizuku.isPreV11 || Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
+            Shizuku.isPreV11() || Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
         } catch (e: Throwable) {
             false
         }
@@ -62,7 +59,7 @@ object ShizukuHelper {
         }
 
         return try {
-            val process = Shizuku.newProcess(
+            val process = newProcessViaReflection(
                 arrayOf("sh", "-c", command),
                 if (redirectErr) arrayOf("LD_LIBRARY_PATH=/data/local/tmp") else null,
                 null
@@ -76,5 +73,12 @@ object ShizukuHelper {
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    @SuppressLint("PrivateApi")
+    private fun newProcessViaReflection(cmd: Array<String>, env: Array<String>?, dir: String?): Process? {
+        val method = Shizuku::class.java.getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
+        method.isAccessible = true
+        return method.invoke(null, cmd, env, dir) as? Process
     }
 }

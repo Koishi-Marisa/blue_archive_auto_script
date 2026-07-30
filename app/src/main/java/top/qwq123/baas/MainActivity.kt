@@ -1,6 +1,7 @@
 package top.qwq123.baas
 
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -33,14 +34,33 @@ import top.qwq123.baas.bridge.BaasBridge
 import top.qwq123.baas.domain.service.TaskExecutionService
 import top.qwq123.baas.shizuku.ShizukuHelper
 
+private typealias ShizukuPermissionListener = rikka.shizuku.Shizuku.OnRequestPermissionResultListener
+
 class MainActivity : ComponentActivity() {
     companion object {
         private const val REQUEST_SCREENSHOT = 1001
         private const val REQUEST_SHIZUKU = 8722
     }
 
+    private var onShizukuResult: ((Boolean) -> Unit)? = null
+
+    private val shizukuPermissionListener = ShizukuPermissionListener { requestCode, grantResult ->
+        if (requestCode == REQUEST_SHIZUKU) {
+            val granted = grantResult == PackageManager.PERMISSION_GRANTED
+            runOnUiThread {
+                onShizukuResult?.invoke(granted)
+                Toast.makeText(
+                    this,
+                    if (granted) "Shizuku granted" else "Shizuku denied",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
         BaasBridge.init(this)
         setContent {
             MaterialTheme {
@@ -53,7 +73,8 @@ class MainActivity : ComponentActivity() {
                             val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
                             startActivity(intent)
                         },
-                        onRequestShizuku = {
+                        onRequestShizuku = { onResult ->
+                            this.onShizukuResult = onResult
                             if (ShizukuHelper.isInstalled()) {
                                 ShizukuHelper.requestPermission(REQUEST_SHIZUKU)
                             } else {
@@ -69,6 +90,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener)
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQUEST_SCREENSHOT) {
@@ -78,12 +104,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
-        permissions: Array<out String>,
+        permissions: Array<String>,
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        // Shizuku uses its own listener API; keep this as a fallback only.
         if (requestCode == REQUEST_SHIZUKU) {
-            val granted = grantResults.isNotEmpty() && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED
+            val granted = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
+            onShizukuResult?.invoke(granted)
             Toast.makeText(this, if (granted) "Shizuku granted" else "Shizuku denied", Toast.LENGTH_SHORT).show()
         }
     }
@@ -93,7 +121,7 @@ class MainActivity : ComponentActivity() {
 fun MainScreen(
     onRequestScreenshot: () -> Unit,
     onOpenAccessibility: () -> Unit,
-    onRequestShizuku: () -> Unit
+    onRequestShizuku: (onResult: (Boolean) -> Unit) -> Unit
 ) {
     val context = LocalContext.current
     var result by remember { mutableStateOf("Tap button to run BAAS smoke test") }
@@ -115,8 +143,9 @@ fun MainScreen(
             color = if (shizukuGranted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
         )
         Button(onClick = {
-            onRequestShizuku()
-            shizukuGranted = ShizukuHelper.isGranted()
+            onRequestShizuku { granted ->
+                shizukuGranted = granted
+            }
         }) {
             Text("Authorize Shizuku")
         }
