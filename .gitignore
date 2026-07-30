@@ -1,0 +1,18 @@
+# BAAS Android
+.gradle/
+build/
+*/build/
+local.properties
+*.iml
+.idea/
+.DS_Store
+*.log
+
+# Generated Android assets
+app/src/main/assets/baas/
+app/src/main/assets/baas/asset_manifest.json
+.baasversion
+
+# Signing
+*.jks
+*.keystore
