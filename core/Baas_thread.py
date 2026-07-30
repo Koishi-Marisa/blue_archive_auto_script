@@ -3,6 +3,7 @@ import json
 import math
 import os
 import subprocess
+import sys
 import threading
 import time
 import traceback
@@ -11,24 +12,50 @@ from datetime import datetime
 
 import cv2
 import numpy as np
-import psutil
 import requests
+
+try:
+    import psutil
+except Exception:
+    psutil = None
 
 import module.explore_tasks.explore_task
 from core import position, picture, utils
 from core.config.config_set import ConfigSet
-from core.device import emulator_manager
 from core.device.Control import Control
 from core.device.Screenshot import Screenshot
 from core.device.connection import Connection
 from core.device import android_bridge
-from core.device.emulator_manager import process_api
-from core.device.uiautomator2_client import BAAS_U2_Initer, __atx_agent_version__
-from core.device.uiautomator2_client import U2Client
 from core.exception import RequestHumanTakeOver, FunctionCallTimeout, PackageIncorrect, LogTraceback
 from core.notification import notify, toast
 from core.pushkit import push
 from core.scheduler import Scheduler
+
+# PC-only modules are imported lazily so the Android build can run without them.
+emulator_manager = None
+process_api = None
+uiautomator2_client = None
+
+def _init_pc_modules():
+    global emulator_manager, process_api, uiautomator2_client
+    if emulator_manager is None:
+        try:
+            from core.device import emulator_manager as _emulator_manager
+            emulator_manager = _emulator_manager
+        except Exception:
+            emulator_manager = None
+    if process_api is None:
+        try:
+            from core.device.emulator_manager import process_api as _process_api
+            process_api = _process_api
+        except Exception:
+            process_api = None
+    if uiautomator2_client is None:
+        try:
+            from core.device import uiautomator2_client as _uiautomator2_client
+            uiautomator2_client = _uiautomator2_client
+        except Exception:
+            uiautomator2_client = None
 
 func_dict = {
     'group': module.group.implement,
@@ -55,6 +82,7 @@ func_dict = {
     'de_clothes': module.de_clothes.implement,
     'tactical_challenge_shop': module.shop.tactical_challenge_shop.implement,
     'collect_daily_power': module.collect_reward.implement,
+    'collect_daily_task_power': module.collect_daily_task_power.implement,
     'total_assault': module.total_assault.implement,
     'restart': module.restart.implement,
     'refresh_uiautomator2': module.refresh_uiautomator2.implement,
@@ -254,7 +282,10 @@ class Baas_thread:
     def check_process_running(self, process_name):
         """
         Check if a process with the given name is running.
+        On Android (no psutil) we always report running so the flow continues.
         """
+        if psutil is None:
+            return True
         for proc in psutil.process_iter(['pid', 'name']):
             if proc.info['name'] == process_name:
                 return True
@@ -262,6 +293,10 @@ class Baas_thread:
 
     def start_check_emulator_stat(self, emulator_strat_stat, wait_time):
         if emulator_strat_stat:
+            _init_pc_modules()
+            if emulator_manager is None or process_api is None:
+                self.logger.warning("Emulator management is not available on this platform, skipping emulator start")
+                return True
             self.logger.info(f"-- BAAS Check Emulator Start --")
             if self.config.emulatorIsMultiInstance:
                 name = self.config.multiEmulatorName
@@ -970,6 +1005,10 @@ class Baas_thread:
 
     def exit_emulator(self):
         self.logger.info(f"-- BAAS Exit Emulator --")
+        _init_pc_modules()
+        if emulator_manager is None or process_api is None:
+            self.logger.warning("Emulator management is not available on this platform, skipping emulator exit")
+            return True
         if self.config.emulatorIsMultiInstance:
             name = self.config.multiEmulatorName
             num = self.config.emulatorMultiInstanceNumber
@@ -1003,10 +1042,16 @@ class Baas_thread:
             self.logger.error("Failed to shutdown. It may be due to a lack of administrator privileges.")
 
     def start_shutdown(self):
+        if sys.platform != "win32":
+            self.logger.warning("Shutdown command is only supported on Windows, skipping")
+            return
         self.logger.info("Running shutdown")
         subprocess.run(["shutdown", "-s", "-t", "60"])
 
     def cancel_shutdown(self):
+        if sys.platform != "win32":
+            self.logger.warning("Shutdown cancel command is only supported on Windows, skipping")
+            return
         self.logger.info("Shutdown cancelled")
         subprocess.run(["shutdown", "-a"])
 

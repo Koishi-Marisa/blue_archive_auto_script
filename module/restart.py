@@ -5,6 +5,14 @@ from datetime import datetime
 def implement(self):
     if not self.is_android_device:
         return True
+    # When using the in-process Android bridge there is no uiautomator2.
+    # We cannot query the current package via ADB, so we just ensure the
+    # game is started and return to the main page.
+    if getattr(self.config, 'screenshot_method', None) == 'android' or \
+            getattr(self.config, 'control_method', None) == 'android':
+        self.logger.info("Using Android bridge, skip ADB restart check")
+        start(self)
+        return True
     cur_package = self.u2.app_current()['package']
     if cur_package != self.package_name:
         if cur_package != self.package_name:
@@ -24,6 +32,13 @@ def implement(self):
 
 def start(self):
     self.logger.info("-- START BLUE ARCHIVE --")
+    # Android bridge mode: rely on the game already being in the foreground
+    # (the user is expected to launch it before starting BAAS). Just return
+    # to the main page using taps.
+    if getattr(self.config, 'screenshot_method', None) == 'android' or \
+            getattr(self.config, 'control_method', None) == 'android':
+        self.to_main_page()
+        return
     activity_name = self.activity_name
     if self.server == 'CN':
         activity_name = None

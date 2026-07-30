@@ -6,14 +6,15 @@ BAAS Android entry point.
 This module is invoked from the Android side via Chaquopy. It intentionally
 bypasses the PC PyQt GUI and ADB-based device stack, replacing them with
 Android-native bridges (screenshot, touch, OCR) injected at runtime.
-
-Current implementation is a minimal smoke test: it reports the Python version,
-imports core BAAS modules, and exposes a hook for the Android UI.
 """
-import importlib
 import os
 import sys
-import time
+import threading
+import traceback
+
+# Current BAAS thread instance running on Android.
+_thread = None
+_thread_lock = threading.Lock()
 
 
 def _ensure_path():
@@ -51,7 +52,6 @@ def smoke_test() -> str:
         return f"dependency_error: {e}"
 
     try:
-        # These import paths assume main_android.py lives next to core/ and module/
         from core.config.config_set import ConfigSet
         from core.Baas_thread import Baas_thread
         _android_log("BAAS core modules imported successfully")
@@ -70,11 +70,9 @@ def smoke_test() -> str:
     return "ok"
 
 
-def run_task(config_dir: str) -> str:
-    """
-    Entry point called by Android when the user starts a task.
-    It creates a minimal BAAS thread using the Android screenshot/control bridge.
-    """
+def _run_task_loop(config_dir: str):
+    """Initialize and run the BAAS scheduler loop in a background thread."""
+    global _thread
     _ensure_path()
     _android_log(f"run_task called with config_dir={config_dir}")
 
@@ -84,19 +82,51 @@ def run_task(config_dir: str) -> str:
         _android_log(f"ConfigSet created for {config_dir}")
     except Exception as e:
         _android_log(f"ConfigSet creation failed: {e}")
-        return f"config_error: {e}"
+        with _thread_lock:
+            _thread = None
+        return
 
     try:
         from core.Baas_thread import Baas_thread
         thread = Baas_thread(config)
         _android_log("Baas_thread created")
         if not thread.init_all_data():
-            return "init_failed"
-        _android_log("Baas_thread initialized")
-        return "ok"
+            _android_log("Baas_thread initialization failed")
+            with _thread_lock:
+                _thread = None
+            return
+        _android_log("Baas_thread initialized, starting scheduler")
+        with _thread_lock:
+            _thread = thread
+        thread.thread_starter()
     except Exception as e:
-        _android_log(f"Baas_thread init failed: {e}")
-        return f"thread_error: {e}"
+        _android_log(f"Baas_thread run failed: {e}\n{traceback.format_exc()}")
+    finally:
+        with _thread_lock:
+            _thread = None
+        _android_log("BAAS task loop ended")
+
+
+def run_task(config_dir: str) -> str:
+    """
+    Entry point called by Android when the user starts a task.
+    Spawns a background thread that initializes BAAS and runs the scheduler.
+    """
+    with _thread_lock:
+        if _thread is not None:
+            return "already_running"
+
+    threading.Thread(target=_run_task_loop, args=(config_dir,), daemon=True).start()
+    return "started"
+
+
+def stop_task() -> str:
+    """Signal the running BAAS thread to stop."""
+    with _thread_lock:
+        if _thread is None:
+            return "not_running"
+        _thread.flag_run = False
+    return "stopping"
 
 
 def main():
