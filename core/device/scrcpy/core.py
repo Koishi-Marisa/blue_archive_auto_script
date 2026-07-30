@@ -7,7 +7,15 @@ from time import sleep
 from typing import Any, Callable, Optional, Tuple, Union
 
 import numpy as np
-from adbutils import AdbConnection, AdbDevice, AdbError, Network, adb
+
+try:
+    from adbutils import AdbConnection, AdbDevice, AdbError, Network, adb
+except Exception:
+    AdbConnection = Any
+    AdbDevice = Any
+    AdbError = Exception
+    Network = Any
+    adb = None
 
 
 from .const import (

@@ -1,12 +1,17 @@
 import math
 
 import cv2
-from core.device.scrcpy.core import Client
 from core.device.scrcpy import const
 from core.device.scrcpy.control import ControlSender
 import threading
 import time
-from adbutils import adb
+
+try:
+    from adbutils import adb
+    from core.device.scrcpy.core import Client
+except Exception:
+    adb = None
+    Client = None
 
 
 class ScrcpyError(Exception):
@@ -17,6 +22,8 @@ class ScrcpyClient:
     connections = dict()
 
     def __init__(self, serial):
+        if adb is None or Client is None:
+            raise RuntimeError("adbutils/scrcpy is not available on this platform")
         self.serial = serial
         self._scrcpy_control_socket_lock = threading.Lock()
         self.connection = Client(adb.device(serial=serial))

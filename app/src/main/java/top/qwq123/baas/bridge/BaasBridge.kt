@@ -30,7 +30,7 @@ object BaasBridge {
     private var ocrService: OcrService? = null
 
     enum class Mode { MEDIA_PROJECTION, SHIZUKU }
-    private var mode: Mode = Mode.MEDIA_PROJECTION
+    private var mode: Mode = Mode.SHIZUKU
 
     /** True when both screenshot permission and accessibility service are ready. */
     @JvmStatic

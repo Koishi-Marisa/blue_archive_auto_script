@@ -1,10 +1,16 @@
-from adbutils import adb
+try:
+    from adbutils import adb
+except Exception:
+    adb = None
+
 import cv2
 import numpy as np
 
 
 class AdbScreenshot:
     def __init__(self, conn):
+        if adb is None:
+            raise RuntimeError("adbutils is not available on this platform")
         self.serial = conn.serial
         self.logger = conn.logger
 

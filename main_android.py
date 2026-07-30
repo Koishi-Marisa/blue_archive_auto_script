@@ -41,6 +41,12 @@ def smoke_test() -> str:
     """Run a minimal import test and return a status string."""
     _ensure_path()
     _android_log("Starting BAAS Android smoke test")
+    try:
+        from top.qwq123.baas.bridge import BaasBridge
+        BaasBridge.setMode("SHIZUKU")
+        _android_log("Bridge mode set to SHIZUKU in smoke_test")
+    except Exception as e:
+        _android_log(f"Failed to set bridge mode in smoke_test: {e}")
     lines = []
 
     try:

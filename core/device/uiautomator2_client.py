@@ -1,13 +1,18 @@
 import datetime
 from retry import retry
-import adbutils
-import uiautomator2 as u2
 import cv2
 import numpy as np
 import requests
-from uiautomator2.version import (__apk_version__, __atx_agent_version__, __version__)
 import os
 import json
+
+try:
+    import adbutils
+    import uiautomator2 as u2
+    from uiautomator2.version import (__apk_version__, __atx_agent_version__, __version__)
+except Exception:
+    adbutils = None
+    u2 = None
 
 appdir = os.path.join(os.path.expanduser("~"), '.uiautomator2')
 
@@ -18,6 +23,8 @@ class U2Client:
     connections = dict()
 
     def __init__(self, serial):
+        if u2 is None:
+            raise RuntimeError("uiautomator2 is not available on this platform")
         self.serial = serial
         if ":" in serial:
             self.connection = u2.connect(serial)
