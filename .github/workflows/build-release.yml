@@ -9,14 +9,13 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     strategy:
+      fail-fast: false
       matrix:
         include:
           - abi: all
             label: universal
           - abi: arm64-v8a
             label: arm64-v8a
-          - abi: x86_64
-            label: x64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
