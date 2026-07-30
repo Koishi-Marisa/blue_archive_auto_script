@@ -27,6 +27,7 @@ class ShizukuScreenshotService {
         val output = result.getOrNull() ?: return ""
         // Output format: "Physical size: 1080x2400" or "Override size: 1080x2400"
         val regex = Regex("""(\d+)x(\d+)""")
-        return regex.find(output)?.value ?: ""
+        val match = regex.find(output) ?: return ""
+        return "${match.groupValues[1]},${match.groupValues[2]}"
     }
 }

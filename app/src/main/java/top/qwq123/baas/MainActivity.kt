@@ -9,13 +9,20 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,12 +30,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.chaquo.python.Python
+import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
 import top.qwq123.baas.bridge.BaasBridge
 import top.qwq123.baas.domain.service.TaskExecutionService
@@ -124,83 +133,155 @@ fun MainScreen(
     onRequestShizuku: (onResult: (Boolean) -> Unit) -> Unit
 ) {
     val context = LocalContext.current
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
     var result by remember { mutableStateOf("Tap button to run BAAS smoke test") }
     var shizukuGranted by remember { mutableStateOf(ShizukuHelper.isGranted()) }
+    var shellCommand by remember { mutableStateOf("whoami") }
+
+    fun append(line: String) {
+        result = if (result == "Tap button to run BAAS smoke test") {
+            line
+        } else {
+            "$result\n$line"
+        }
+        scope.launch { listState.animateScrollToItem(0) }
+    }
 
     LaunchedEffect(Unit) {
         // Default to Shizuku mode for this build.
         BaasBridge.setMode("SHIZUKU")
     }
 
-    Column(modifier = Modifier.padding(16.dp)) {
-        Text("BAAS Android", style = MaterialTheme.typography.headlineMedium)
-        Text(result, modifier = Modifier.padding(vertical = 16.dp))
-
-        // Shizuku status and authorization
+    Column(modifier = Modifier.fillMaxSize()) {
         Text(
-            "Shizuku: ${if (shizukuGranted) "GRANTED" else "NOT GRANTED"}",
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (shizukuGranted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+            "BAAS Android",
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp)
         )
-        Button(onClick = {
-            onRequestShizuku { granted ->
-                shizukuGranted = granted
+
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.weight(1f).padding(horizontal = 16.dp)
+        ) {
+            item {
+                Text(result, modifier = Modifier.padding(vertical = 8.dp))
             }
-        }) {
-            Text("Authorize Shizuku")
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        LazyColumn(
+            modifier = Modifier.weight(2f).padding(horizontal = 16.dp)
+        ) {
+            item {
+                Text(
+                    "Shizuku: ${if (shizukuGranted) "GRANTED" else "NOT GRANTED"}",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (shizukuGranted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                )
+                Button(onClick = {
+                    onRequestShizuku { granted ->
+                        shizukuGranted = granted
+                    }
+                }) {
+                    Text("Authorize Shizuku")
+                }
 
-        Button(onClick = {
-            result = try {
-                val py = Python.getInstance()
-                val module = py.getModule("main_android")
-                module.callAttr("smoke_test").toString()
-            } catch (e: Exception) {
-                "error: ${e.message}"
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = {
+                        append("Smoke: ${runCatching { Python.getInstance().getModule("main_android").callAttr("smoke_test").toString() }.getOrElse { it.message ?: "error" }}")
+                    }) {
+                        Text("Smoke")
+                    }
+                    Button(onClick = onRequestScreenshot) {
+                        Text("Screenshot")
+                    }
+                    Button(onClick = onOpenAccessibility) {
+                        Text("A11y")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = {
+                        if (!BaasBridge.isReady()) {
+                            append("Please authorize Shizuku first")
+                            return@Button
+                        }
+                        val intent = Intent(context, TaskExecutionService::class.java).apply {
+                            putExtra(TaskExecutionService.EXTRA_CONFIG_NAME, "android")
+                        }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            context.startForegroundService(intent)
+                        } else {
+                            context.startService(intent)
+                        }
+                        append("BAAS task started")
+                    }) {
+                        Text(stringResource(R.string.start_task))
+                    }
+                    Button(onClick = {
+                        val stopIntent = Intent(context, TaskExecutionService::class.java).apply {
+                            action = TaskExecutionService.ACTION_STOP
+                        }
+                        context.startService(stopIntent)
+                        append("BAAS task stopping...")
+                    }) {
+                        Text(stringResource(R.string.stop_task))
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                Text("Debug", style = MaterialTheme.typography.titleMedium)
+                Text(BaasBridge.diagnosticInfo(), style = MaterialTheme.typography.bodySmall)
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                OutlinedTextField(
+                    value = shellCommand,
+                    onValueChange = { shellCommand = it },
+                    label = { Text("Shell command") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { append("Shell: ${BaasBridge.testShizukuShell(shellCommand)}") }) {
+                        Text("Run Shell")
+                    }
+                    Button(onClick = { append("Info: ${ShizukuHelper.info()}") }) {
+                        Text("Shizuku Info")
+                    }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { append("SS: ${BaasBridge.testScreenshot()}") }) {
+                        Text("Test SS")
+                    }
+                    Button(onClick = { append("Ctrl: ${BaasBridge.testControl()}") }) {
+                        Text("Test Tap")
+                    }
+                    Button(onClick = { append("OCR: ${BaasBridge.testOcr()}") }) {
+                        Text("Test OCR")
+                    }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = {
+                        append("PyDiag:\n${runCatching { Python.getInstance().getModule("main_android").callAttr("diagnostic", "android").toString() }.getOrElse { it.message ?: "error" }}")
+                    }) {
+                        Text("Py Diagnostic")
+                    }
+                    Button(onClick = {
+                        append("Diag:\n${BaasBridge.diagnosticInfo()}")
+                    }) {
+                        Text("Refresh Diagnostic")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
             }
-        }) {
-            Text("Run Smoke Test")
-        }
-
-        Button(onClick = onRequestScreenshot) {
-            Text("Grant Screenshot (fallback)")
-        }
-
-        Button(onClick = onOpenAccessibility) {
-            Text("Open Accessibility (fallback)")
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(onClick = {
-            if (!BaasBridge.isReady()) {
-                result = "Please authorize Shizuku first"
-                Toast.makeText(context, result, Toast.LENGTH_LONG).show()
-                return@Button
-            }
-            val intent = Intent(context, TaskExecutionService::class.java).apply {
-                putExtra(TaskExecutionService.EXTRA_CONFIG_NAME, "android")
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
-            result = "BAAS task started"
-        }) {
-            Text(stringResource(R.string.start_task))
-        }
-
-        Button(onClick = {
-            val stopIntent = Intent(context, TaskExecutionService::class.java).apply {
-                action = TaskExecutionService.ACTION_STOP
-            }
-            context.startService(stopIntent)
-            result = "BAAS task stopping..."
-        }) {
-            Text(stringResource(R.string.stop_task))
         }
     }
 }

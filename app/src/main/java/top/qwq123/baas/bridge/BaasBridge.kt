@@ -64,6 +64,55 @@ object BaasBridge {
     fun getMode(): String = mode.name
 
     @JvmStatic
+    fun diagnosticInfo(): String {
+        return buildString {
+            appendLine("mode=${mode.name}")
+            appendLine("shizuku={${ShizukuHelper.info()}}")
+            appendLine("mediaProjection={lastBitmap=${screenshotService?.lastBitmap != null}}")
+            appendLine("accessibility={instance=${AccessibilityHelperService.instance != null}}")
+        }.trim()
+    }
+
+    @JvmStatic
+    fun testShizukuShell(command: String): String {
+        val result = ShizukuHelper.execute(command)
+        return result.fold(
+            onSuccess = { "OK (${it.length} chars): ${it.take(500)}" },
+            onFailure = { "FAIL: ${it.javaClass.simpleName}: ${it.message}" }
+        )
+    }
+
+    @JvmStatic
+    fun testScreenshot(): String {
+        val jpeg = screenshotJpeg()
+        return if (jpeg != null) {
+            "OK: ${jpeg.size} bytes, size=${screenshotSize()}"
+        } else {
+            "FAIL: screenshotJpeg returned null. ${diagnosticInfo()}"
+        }
+    }
+
+    @JvmStatic
+    fun testControl(): String {
+        val (w, h) = screenshotSize().split(",").mapNotNull { it.toIntOrNull() }
+            .let { if (it.size == 2) it[0] to it[1] else 1080 to 1920 }
+        val x = w / 2
+        val y = h / 2
+        val ok = click(x, y)
+        return if (ok) "OK: click at ($x, $y)" else "FAIL: click at ($x, $y). ${diagnosticInfo()}"
+    }
+
+    @JvmStatic
+    fun testOcr(): String {
+        val jpeg = screenshotJpeg() ?: return "FAIL: no screenshot"
+        val (w, h) = screenshotSize().split(",").mapNotNull { it.toIntOrNull() }
+            .let { if (it.size == 2) it[0] to it[1] else 0 to 0 }
+        if (w == 0 || h == 0) return "FAIL: unknown screenshot size"
+        val json = ocr(jpeg, w, h, "zh")
+        return "OK: ${json.take(500)}"
+    }
+
+    @JvmStatic
     fun requestScreenshotPermission(activity: Activity, requestCode: Int) {
         val mgr = activity.getSystemService<MediaProjectionManager>() ?: return
         val intent = mgr.createScreenCaptureIntent()

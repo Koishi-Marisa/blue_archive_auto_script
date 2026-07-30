@@ -41,33 +41,51 @@ def smoke_test() -> str:
     """Run a minimal import test and return a status string."""
     _ensure_path()
     _android_log("Starting BAAS Android smoke test")
+    lines = []
 
     try:
         import cv2
         import numpy as np
         import requests
-        _android_log(f"OpenCV {cv2.__version__}, NumPy {np.__version__}, requests ok")
+        msg = f"OpenCV {cv2.__version__}, NumPy {np.__version__}, requests ok"
+        _android_log(msg)
+        lines.append(msg)
     except Exception as e:
-        _android_log(f"Dependency import failed: {e}")
-        return f"dependency_error: {e}"
+        _android_log(f"Dependency import failed: {e}\n{traceback.format_exc()}")
+        lines.append(f"dependency_error: {e}")
+        return "\n".join(lines)
 
     try:
         from core.config.config_set import ConfigSet
         from core.Baas_thread import Baas_thread
         _android_log("BAAS core modules imported successfully")
+        lines.append("core modules ok")
     except Exception as e:
-        _android_log(f"BAAS core import failed: {e}")
-        return f"baas_import_error: {e}"
+        _android_log(f"BAAS core import failed: {e}\n{traceback.format_exc()}")
+        lines.append(f"baas_core_error: {e}")
+        return "\n".join(lines)
 
     try:
         from core.device import android_bridge
         _android_log("Android bridge module imported successfully")
+        lines.append("android_bridge ok")
     except Exception as e:
-        _android_log(f"Android bridge import failed: {e}")
-        return f"android_bridge_import_error: {e}"
+        _android_log(f"Android bridge import failed: {e}\n{traceback.format_exc()}")
+        lines.append(f"android_bridge_error: {e}")
+        return "\n".join(lines)
+
+    try:
+        config = ConfigSet(config_dir="android")
+        lines.append(f"config_dir=android ok")
+        lines.append(f"screenshot_method={getattr(config, 'screenshot_method', 'unknown')}")
+        lines.append(f"control_method={getattr(config, 'control_method', 'unknown')}")
+    except Exception as e:
+        _android_log(f"ConfigSet smoke failed: {e}\n{traceback.format_exc()}")
+        lines.append(f"config_error: {e}")
 
     _android_log("Smoke test passed")
-    return "ok"
+    lines.append("smoke_ok")
+    return "\n".join(lines)
 
 
 def _configure_bridge(config):
@@ -97,9 +115,11 @@ def _run_task_loop(config_dir: str):
         from core.config.config_set import ConfigSet
         config = ConfigSet(config_dir=config_dir)
         _android_log(f"ConfigSet created for {config_dir}")
+        _android_log(f"config screenshot_method={getattr(config, 'screenshot_method', 'unknown')}")
+        _android_log(f"config control_method={getattr(config, 'control_method', 'unknown')}")
         _configure_bridge(config)
     except Exception as e:
-        _android_log(f"ConfigSet creation failed: {e}")
+        _android_log(f"ConfigSet creation failed: {e}\n{traceback.format_exc()}")
         with _thread_lock:
             _thread = None
         return
@@ -108,6 +128,7 @@ def _run_task_loop(config_dir: str):
         from core.Baas_thread import Baas_thread
         thread = Baas_thread(config)
         _android_log("Baas_thread created")
+        _android_log(f"Baas_thread.package_name={getattr(thread, 'package_name', 'N/A')}")
         if not thread.init_all_data():
             _android_log("Baas_thread initialization failed")
             with _thread_lock:
@@ -123,6 +144,45 @@ def _run_task_loop(config_dir: str):
         with _thread_lock:
             _thread = None
         _android_log("BAAS task loop ended")
+
+
+def diagnostic(config_dir: str = "android") -> str:
+    """Run a quick diagnostic and return a human-readable report."""
+    _ensure_path()
+    lines = []
+    lines.append(f"cwd={os.getcwd()}")
+    lines.append(f"sys.path[0]={sys.path[0] if sys.path else 'empty'}")
+
+    try:
+        from core.config.config_set import ConfigSet
+        config = ConfigSet(config_dir=config_dir)
+        lines.append(f"ConfigSet({config_dir}) ok")
+        lines.append(f"  screenshot_method={getattr(config, 'screenshot_method', 'unknown')}")
+        lines.append(f"  control_method={getattr(config, 'control_method', 'unknown')}")
+    except Exception as e:
+        lines.append(f"ConfigSet({config_dir}) error: {e}")
+        lines.append(traceback.format_exc())
+
+    try:
+        from core.device.android_bridge import AndroidBridge
+        lines.append("android_bridge imported")
+    except Exception as e:
+        lines.append(f"android_bridge import error: {e}")
+        lines.append(traceback.format_exc())
+
+    try:
+        from core.device.screenshot.android import AndroidScreenshot
+        lines.append("AndroidScreenshot imported")
+    except Exception as e:
+        lines.append(f"AndroidScreenshot import error: {e}")
+
+    try:
+        from core.device.control.android import AndroidControl
+        lines.append("AndroidControl imported")
+    except Exception as e:
+        lines.append(f"AndroidControl import error: {e}")
+
+    return "\n".join(lines)
 
 
 def run_task(config_dir: str) -> str:
