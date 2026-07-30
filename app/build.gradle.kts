@@ -94,7 +94,7 @@ android {
         create("release") {
             val keystorePath = System.getenv("KEYSTORE_PATH")
                 ?: localProperties.getProperty("KEYSTORE_PATH", "")
-            if (keystorePath.isNotEmpty()) {
+            if (keystorePath.isNotEmpty() && file(keystorePath).exists()) {
                 storeFile = file(keystorePath)
                 storePassword = System.getenv("KEYSTORE_PASSWORD")
                     ?: localProperties.getProperty("KEYSTORE_PASSWORD", "")
@@ -116,7 +116,7 @@ android {
             )
             val keystorePath = System.getenv("KEYSTORE_PATH")
                 ?: localProperties.getProperty("KEYSTORE_PATH", "")
-            if (keystorePath.isNotEmpty()) {
+            if (keystorePath.isNotEmpty() && file(keystorePath).exists()) {
                 signingConfig = signingConfigs.getByName("release")
                 println("[Signing] Using release keystore: $keystorePath")
             } else {
