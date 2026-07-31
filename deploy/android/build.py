@@ -200,7 +200,7 @@ def _build():
 
     # Verify local recipes were generated before buildozer starts.
     local_recipes = build_path('recipes')
-    for recipe_name in ('pillow', 'numpy'):
+    for recipe_name in ('pillow', 'numpy', 'setuptools'):
         recipe_init = os.path.join(local_recipes, recipe_name, '__init__.py')
         if not os.path.isfile(recipe_init):
             raise FileNotFoundError(f'Local recipe missing: {recipe_init}')
@@ -208,6 +208,8 @@ def _build():
             content = f.read()
         if recipe_name == 'pillow' and '_url' not in content:
             raise ValueError(f'Pillow recipe does not define _url: {recipe_init}')
+        if recipe_name == 'setuptools' and 'version' not in content:
+            raise ValueError(f'Setuptools recipe does not define version: {recipe_init}')
         log(f'Verified local recipe: {recipe_name}')
 
     result = subprocess.run(['buildozer', 'android', 'debug'])

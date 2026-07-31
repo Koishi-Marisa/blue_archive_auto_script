@@ -18,7 +18,10 @@ class PillowRecipe(PyProjectRecipe):
     # Pillow 11.3 needs setuptools>=77 for its PEP 517 backend, but
     # setuptools>=81 removed the dry_run parameter used by p4a's setup.py
     # install path, so pin a compatible upper bound.
-    hostpython_prerequisites = ["setuptools>=77,<81"]
+    # Pin to the same setuptools version used by the local setuptools recipe.
+    # setuptools>=81 removed dry_run support and breaks p4a's setup.py install
+    # path, while Pillow 11.3 needs setuptools>=77 for its PEP 517 backend.
+    hostpython_prerequisites = ["setuptools==80.10.2"]
 
     # Optional image libraries are disabled for Android cross-compilation.
     # Only zlib is kept because Pillow requires it and the Android NDK
