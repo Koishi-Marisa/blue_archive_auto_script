@@ -34,6 +34,12 @@ fi
 # Install required SDK platforms and build tools
 yes | "${CMDLINE_TOOLS_DIR}/latest/bin/sdkmanager" "platforms;android-24" "build-tools;24.0.3" || true
 
+# Create legacy tools/bin path expected by buildozer/python-for-android
+mkdir -p "${ANDROID_SDK_DIR}/tools"
+if [ ! -e "${ANDROID_SDK_DIR}/tools/bin" ]; then
+    ln -sfn "${CMDLINE_TOOLS_DIR}/latest/bin" "${ANDROID_SDK_DIR}/tools/bin"
+fi
+
 ########## Download NDK ##########
 ANDROID_NDK_VERSION="r26b"
 ANDROID_NDK_DIR="${PYSIDE6_ANDROID_DEPLOY}/android-ndk/android-ndk-${ANDROID_NDK_VERSION}"
