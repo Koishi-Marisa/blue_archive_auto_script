@@ -184,8 +184,8 @@ def _prepare_p4a():
         # Disable PEP 517 build isolation: the p4a-built hostpython cannot
         # create working isolated venvs, so backends must be importable from
         # the hostpython site-packages prepared by install_hostpython_prerequisites.
-        marker = '"--config-setting",\n            "builddir={}".format(sub_build_dir),\n        ] + self.extra_build_args'
-        replacement = '"--config-setting",\n            "builddir={}".format(sub_build_dir),\n            "--no-isolation",\n        ] + self.extra_build_args'
+        marker = '            "--config-setting",\n            "builddir={}".format(sub_build_dir),\n        ] + self.extra_build_args'
+        replacement = '            "--config-setting",\n            "builddir={}".format(sub_build_dir),\n            "--no-isolation",\n        ] + self.extra_build_args'
         if marker in content and replacement not in content:
             log('Patching p4a PyProjectRecipe to use --no-isolation...')
             content = content.replace(marker, replacement)
