@@ -16,3 +16,18 @@ app/src/main/assets/baas/
 # Signing
 *.jks
 *.keystore
+
+# PySide6 / buildozer generated artifacts
+buildozer.spec
+buildozer-32.spec
+bin/
+.buildozer/
+.pyside6_android_deploy/
+.sdk/
+.deploy/
+*.pyc
+__pycache__/
+*.pyo
+*.apk
+*.aab
+deploy/android/jar/

@@ -34,7 +34,7 @@ jobs:
       - name: Build APK
         run: |
           mkdir -p bin
-          docker run --rm \
+          docker run --rm --user root \
             -v "$(pwd):/work" \
             -w /work \
             boa-android-build \

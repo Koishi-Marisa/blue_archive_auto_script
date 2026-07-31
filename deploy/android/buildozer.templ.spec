@@ -26,7 +26,7 @@ android.add_jars = {{ jars_path }}
 p4a.extra_args = --qt-libs=Core,Gui,Widgets --load-local-libs=plugins_platforms_qtforandroid --init-classes=
 icon.filename = {{ icon_path }}
 android.enable_androidx = True
-android.entrypoint = org.baas.boa.MainActivity
+android.entrypoint = top.qwq123.baas.MainActivity
 
 ######### Shizuku #########
 android.gradle_dependencies = dev.rikka.shizuku:api:13.1.5,dev.rikka.shizuku:provider:13.1.5,androidx.core:core:1.6.0,org.jetbrains.kotlin:kotlin-stdlib:1.9.22

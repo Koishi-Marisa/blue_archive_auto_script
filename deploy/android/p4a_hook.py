@@ -55,15 +55,20 @@ def _patch_manifest(manifest_path: str):
 
 def _copy_src():
     # 复制 Java
-    info(f'Copying java src...')
-    shutil.copytree(JAVA_SRC_PATH, './src/main/java', dirs_exist_ok=True)
-    
-    # 复制 AIDL
-    info(f'Copying aidl src...')
-    shutil.copytree(AIDL_SRC_PATH, './src/main/aidl', dirs_exist_ok=True)
-    
-    # [NEW 3] 复制 FileProvider 的资源文件 (关键修复步骤)
-    # 目标路径必须是 src/main/res/xml/
+    if os.path.exists(JAVA_SRC_PATH):
+        info(f'Copying java src...')
+        shutil.copytree(JAVA_SRC_PATH, './src/main/java', dirs_exist_ok=True)
+    else:
+        info(f'Java src path not found: {JAVA_SRC_PATH}, skipping.')
+
+    # 复制 AIDL（如果存在）
+    if os.path.exists(AIDL_SRC_PATH):
+        info(f'Copying aidl src...')
+        shutil.copytree(AIDL_SRC_PATH, './src/main/aidl', dirs_exist_ok=True)
+    else:
+        info(f'AIDL src path not found: {AIDL_SRC_PATH}, skipping.')
+
+    # 复制 FileProvider 的资源文件
     target_res_xml = os.path.join(os.getcwd(), 'src', 'main', 'res', 'xml')
     if not os.path.exists(target_res_xml):
         os.makedirs(target_res_xml)

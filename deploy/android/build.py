@@ -121,6 +121,9 @@ def ensure_pyside6_shiboken6(arch):
     shiboken6_url = SHIBOKEN6_WHEEL_BASIC_URL + wheel_tag
     download_artifact(shiboken6_path, shiboken6_url)
 
+    log('Extracting Qt jars from PySide6 wheel...')
+    extract_jars_from_wheel(pyside6_path)
+
     log('Generating recipes...')
     if os.path.exists(build_path('recipes')):
         log(f'Removing existing recipes...')
@@ -135,6 +138,24 @@ def download_artifact(path: str, url: str):
     if not os.path.exists(path):
         log(f'Downloading artifact from to {path}...')
         os.system(f'curl -L {url} -o {path}')
+
+def extract_jars_from_wheel(wheel_path: str):
+    """Extract Android Qt jars required by buildozer from the PySide6 wheel."""
+    import zipfile
+    jar_names = ['Qt6Android.jar', 'Qt6AndroidBindings.jar']
+    jar_prefix = 'PySide6/jar/'
+    for jar_name in jar_names:
+        jar_dest = proj_path(f'deploy/android/jar/PySide6/jar/{jar_name}')
+        if os.path.exists(jar_dest):
+            continue
+        os.makedirs(os.path.dirname(jar_dest), exist_ok=True)
+        with zipfile.ZipFile(wheel_path, 'r') as zf:
+            source = f'{jar_prefix}{jar_name}'
+            if source not in zf.namelist():
+                raise FileNotFoundError(f'Required jar {source} not found in {wheel_path}')
+            log(f'Extracting {source} to {jar_dest}')
+            with zf.open(source) as src, open(jar_dest, 'wb') as dst:
+                dst.write(src.read())
 
 def _build():
     os.environ['ANDROIDSDK'] = proj_path(ANDROID_SDK_PATH)

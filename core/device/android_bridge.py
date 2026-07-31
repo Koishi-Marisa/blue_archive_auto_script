@@ -14,11 +14,18 @@ import numpy as np
 
 
 def _bridge():
-    """Return the Kotlin BaasBridge class."""
+    """Return the BaasBridge Java/Kotlin class."""
     try:
+        # Chaquopy path
         from com.chaquo.python import Python
         from java.lang import Class
         return Class.forName("top.qwq123.baas.bridge.BaasBridge")
+    except Exception:
+        pass
+    try:
+        # python-for-android / pyjnius path
+        from jnius import autoclass
+        return autoclass("top.qwq123.baas.bridge.BaasBridge")
     except Exception as e:
         raise RuntimeError("BaasBridge not available") from e
 

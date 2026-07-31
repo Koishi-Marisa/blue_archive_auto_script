@@ -1,9 +1,3 @@
-<activity android:name="org.baas.boa.crash.CrashActivity"
-          android:process=":crash_reporter"
-          android:theme="@android:style/Theme.DeviceDefault"
-          android:launchMode="singleTask"
-          android:excludeFromRecents="true" />
-
 <provider
     android:name="androidx.core.content.FileProvider"
     android:authorities="top.qwq123.boa.fileprovider"

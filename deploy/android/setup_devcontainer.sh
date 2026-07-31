@@ -4,44 +4,52 @@ set -e
 set -u
 set -o pipefail
 
-# ########## Download SDK ##########
-# # check if android-sdk installed
-# if [ -d .sdk/android-sdk/cmdline-tools ]; then
-#     echo "Android SDK already installed."
-# else
-#     # download sdk
-#     echo "Downloading Android SDK..."
-#     mkdir -p .sdk/android-sdk
-#     cd .sdk/android-sdk
-#     wget https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
-#     unzip commandlinetools-linux-13114758_latest.zip
-#     rm commandlinetools-linux-13114758_latest.zip
-#     cd ../..
-#     # accept sdk license
-#     yes | .sdk/android-sdk/cmdline-tools/bin/sdkmanager --licenses
-# fi
+# Base directory for all Android build dependencies
+export PYSIDE6_ANDROID_DEPLOY="$(pwd)/.pyside6_android_deploy"
+mkdir -p "${PYSIDE6_ANDROID_DEPLOY}"
 
-# ########## Download NDK ##########
-# # check if ndk installed
-# if [ -d .sdk/android-ndk ]; then
-#     echo "Android NDK already installed."
-# else
-#     # download ndk
-#     echo "Downloading Android NDK..."
-#     mkdir -p .sdk/android-ndk
-#     cd .sdk/android-ndk
-#     wget https://dl.google.com/android/repository/android-ndk-r25c-linux.zip
-#     unzip android-ndk-r25c-linux.zip
-#     rm android-ndk-r25c-linux.zip
-#     cd ../..
-# fi
+########## Download SDK ##########
+ANDROID_SDK_DIR="${PYSIDE6_ANDROID_DEPLOY}/android-sdk"
+CMDLINE_TOOLS_DIR="${ANDROID_SDK_DIR}/cmdline-tools"
+
+if [ -d "${CMDLINE_TOOLS_DIR}/bin" ]; then
+    echo "Android SDK already installed."
+else
+    echo "Downloading Android SDK command line tools..."
+    mkdir -p "${ANDROID_SDK_DIR}"
+    cd "${ANDROID_SDK_DIR}"
+    wget -q https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
+    unzip -q commandlinetools-linux-13114758_latest.zip
+    rm commandlinetools-linux-13114758_latest.zip
+    cd -
+    # accept sdk license
+    yes | "${CMDLINE_TOOLS_DIR}/bin/sdkmanager" --licenses || true
+fi
+
+# Install required SDK platforms and build tools
+yes | "${CMDLINE_TOOLS_DIR}/bin/sdkmanager" "platforms;android-24" "build-tools;24.0.3" || true
+
+########## Download NDK ##########
+ANDROID_NDK_VERSION="r26b"
+ANDROID_NDK_DIR="${PYSIDE6_ANDROID_DEPLOY}/android-ndk/android-ndk-${ANDROID_NDK_VERSION}"
+
+if [ -d "${ANDROID_NDK_DIR}" ]; then
+    echo "Android NDK already installed."
+else
+    echo "Downloading Android NDK ${ANDROID_NDK_VERSION}..."
+    mkdir -p "${PYSIDE6_ANDROID_DEPLOY}/android-ndk"
+    cd "${PYSIDE6_ANDROID_DEPLOY}/android-ndk"
+    wget -q "https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux.zip"
+    unzip -q "android-ndk-${ANDROID_NDK_VERSION}-linux.zip"
+    rm "android-ndk-${ANDROID_NDK_VERSION}-linux.zip"
+    cd -
+fi
 
 ########## Setup PATH ##########
-export ANDROIDSDK="$(pwd)/.sdk/android-sdk/cmdline-tools/bin"
-export ANDROIDNDK="$(pwd)/.sdk/android-ndk/android-ndk-r25b"
+export ANDROIDSDK="${ANDROID_SDK_DIR}"
+export ANDROIDNDK="${ANDROID_NDK_DIR}"
 # Link cache directory to workspace to avoid re-downloading
-mkdir -p .pyside6_android_deploy
-ln -sfn "$(pwd)/.pyside6_android_deploy" ~/.pyside6_android_deploy
+ln -sfn "${PYSIDE6_ANDROID_DEPLOY}" ~/.pyside6_android_deploy
 
 ########## Create Python virtual environment ##########
 
@@ -52,36 +60,23 @@ echo "Activating virtual environment..."
 echo "Upgrading pip..."
 python -m pip install --upgrade pip
 
-if [ -f requirements-android.txt ]; then
-    echo "Installing dependencies from requirements-android.txt..."
-    pip install -r requirements-android.txt
-    echo "Dependencies installed."
+echo "Installing build requirements..."
+if [ -f deploy/android/requirements-build.txt ]; then
+    pip install -r deploy/android/requirements-build.txt
 else
-    echo "requirements-android.txt not found, skipping dependency installation."
+    echo "deploy/android/requirements-build.txt not found, skipping build dependency installation."
 fi
 
-########## Setup pyside6-android-deploy ##########
-# if [ -d ~/.pyside6-android-deploy ]; then
-#     echo "pyside6-android-deploy already installed."
-# else
-#     git clone https://code.qt.io/pyside/pyside-setup
-#     cd pyside-setup
-#     git checkout 6.7
-#     pip install -r requirements.txt
-#     pip install -r tools/cross_compile_android/requirements.txt
-#     python tools/cross_compile_android/main.py --download-only --skip-update --auto-accept-license
-#     cd ..
-# fi
-
+########## Setup pyside6-android-deploy wheels ##########
 # check pyside wheels
 cd .pyside6_android_deploy
-if [ ! -f pyside6-*.whl ]; then
-    echo "pyside wheels not found, downloading..."
-    wget https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-6.9.2-6.9.2-cp311-cp311-android_aarch64.whl
+if [ ! -f pyside6-*.whl ] && [ ! -f PySide6-*.whl ]; then
+    echo "PySide6 wheels not found, downloading..."
+    wget -q https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-6.9.2-6.9.2-cp311-cp311-android_aarch64.whl
 fi
 if [ ! -f shiboken6-*.whl ]; then
     echo "shiboken6 wheels not found, downloading..."
-    wget https://download.qt.io/official_releases/QtForPython/shiboken6/shiboken6-6.9.0-6.9.0-cp311-cp311-android_aarch64.whl
+    wget -q https://download.qt.io/official_releases/QtForPython/shiboken6/shiboken6-6.9.0-6.9.0-cp311-cp311-android_aarch64.whl
 fi
 cd ..
 
@@ -89,4 +84,6 @@ echo "Environment setup complete."
 
 ########## Setup ADB ##########
 # Prioritize IPv4 over IPv6 for ADB connection
-sudo sed -i 's/#precedence ::ffff:0:0\/96  100/precedence ::ffff:0:0\/96  100/' /etc/gai.conf
+if [ -f /etc/gai.conf ]; then
+    sed -i 's/#precedence ::ffff:0:0\/96  100/precedence ::ffff:0:0\/96  100/' /etc/gai.conf || true
+fi
