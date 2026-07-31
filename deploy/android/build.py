@@ -157,9 +157,46 @@ def extract_jars_from_wheel(wheel_path: str):
             with zf.open(source) as src, open(jar_dest, 'wb') as dst:
                 dst.write(src.read())
 
+P4A_URL = 'https://github.com/XcantloadX/python-for-android.git'
+P4A_BRANCH = 'develop'
+P4A_COMMIT = '4838a0a2455783ad511478e44bc661ad5153bb42'
+P4A_DIR = '.buildozer/android/platform/python-for-android'
+
+
+def _prepare_p4a():
+    """Ensure python-for-android is cloned and patched for CI build."""
+    p4a_path = proj_path(P4A_DIR)
+    if not os.path.exists(p4a_path):
+        log('Cloning python-for-android...')
+        os.makedirs(os.path.dirname(p4a_path), exist_ok=True)
+        subprocess.run([
+            'git', 'clone', '--branch', P4A_BRANCH, P4A_URL, p4a_path
+        ], check=True)
+        subprocess.run(
+            ['git', 'reset', '--hard', P4A_COMMIT],
+            cwd=p4a_path, check=True
+        )
+
+    recipe_py = os.path.join(p4a_path, 'pythonforandroid', 'recipe.py')
+    if os.path.exists(recipe_py):
+        with open(recipe_py, 'r') as f:
+            content = f.read()
+        # Disable PEP 517 build isolation: the p4a-built hostpython cannot
+        # create working isolated venvs, so backends must be importable from
+        # the hostpython site-packages prepared by install_hostpython_prerequisites.
+        marker = '"--config-setting",\n            "builddir={}".format(sub_build_dir),\n        ] + self.extra_build_args'
+        replacement = '"--config-setting",\n            "builddir={}".format(sub_build_dir),\n            "--no-isolation",\n        ] + self.extra_build_args'
+        if marker in content and replacement not in content:
+            log('Patching p4a PyProjectRecipe to use --no-isolation...')
+            content = content.replace(marker, replacement)
+            with open(recipe_py, 'w') as f:
+                f.write(content)
+
+
 def _build():
     os.environ['ANDROIDSDK'] = proj_path(ANDROID_SDK_PATH)
     os.environ['ANDROIDNDK'] = proj_path(ANDROID_NDK_PATH)
+    _prepare_p4a()
     result = subprocess.run(['buildozer', 'android', 'debug'])
     if result.returncode != 0:
         raise SystemExit(result.returncode)
