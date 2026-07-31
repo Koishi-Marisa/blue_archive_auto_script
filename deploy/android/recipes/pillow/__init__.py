@@ -10,7 +10,7 @@ class PillowRecipe(PyProjectRecipe):
     """
 
     version = "11.3.0"
-    url = "https://files.pythonhosted.org/packages/source/P/Pillow/Pillow-{version}.tar.gz"
+    url = "https://pypi.python.org/packages/source/p/pillow/pillow-{version}.tar.gz"
     hostpython_prerequisites = ["setuptools>=77"]
 
     def build_arch(self, arch):
