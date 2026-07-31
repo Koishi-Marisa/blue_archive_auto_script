@@ -79,32 +79,46 @@ def run_shell(command):
 
 
 def ensure_android_config():
-    """Create or update a minimal Android config set."""
+    """Create or update the Android config set.
+
+    The repository ships a complete default config under config/android/config.json.
+    If the runtime copy is missing, copy that template; otherwise only update the
+    Android-specific screenshot/control methods so the dataclass stays valid.
+    """
     import json
+    import shutil
     from core.config.config_set import ConfigSet
 
     config_dir = "android"
     config_path = os.path.join(os.getcwd(), "config", config_dir, "config.json")
-    os.makedirs(os.path.dirname(config_path), exist_ok=True)
+    template_path = os.path.join(os.getcwd(), "config", config_dir, "config.json")
 
-    default = {
-        "screenshot_method": "android",
-        "control_method": "android",
-        "server_mode": "官服",
-        "name": "android",
-        "priority": "普通",
-        "server": "官服",
-    }
+    # The template lives in the same relative path inside the APK. If it exists
+    # but the writable runtime copy does not, copy the whole template to avoid
+    # creating an incomplete config that breaks ConfigSet's dataclass.
+    if not os.path.exists(config_path) and os.path.exists(template_path):
+        os.makedirs(os.path.dirname(config_path), exist_ok=True)
+        shutil.copyfile(template_path, config_path)
+
+    os.makedirs(os.path.dirname(config_path), exist_ok=True)
 
     if os.path.exists(config_path):
         with open(config_path, "r", encoding="utf-8") as f:
             data = json.load(f)
     else:
-        data = {}
+        # Fallback: an extremely small subset is not enough for Config, so raise
+        # early with a clear message instead of crashing inside ConfigSet.
+        raise FileNotFoundError(
+            f"Android config template not found: {template_path}"
+        )
 
-    for key, value in default.items():
-        if key not in data:
-            data[key] = value
+    # Override only the Android-specific fields; keep every other field intact.
+    data["screenshot_method"] = "shizuku"
+    data["control_method"] = "shizuku"
+    if "server" not in data:
+        data["server"] = "官服"
+    if "name" not in data:
+        data["name"] = "android"
 
     with open(config_path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
