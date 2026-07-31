@@ -457,7 +457,7 @@ class Window(MSFluentWindow):
     def init_main_class_thread(self):
         QApplication.processEvents()
         try:
-            from main import Main
+            from baas_main import Main
             self.main_class = Main(self._sub_list[0][0].main_thread_attach.logger_signal, self.ocr_needed)
             for i in range(0, len(self._sub_list[0])):
                 self._sub_list[0][i].main_thread_attach.Main = self.main_class

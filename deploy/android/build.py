@@ -193,6 +193,44 @@ def _prepare_p4a():
                 f.write(content)
 
 
+def _swap_main_for_android():
+    """Replace the desktop main.py with the Android entry point for the build.
+
+    Buildozer requires the Python entry point to be named main.py inside
+    source.dir. The BAAS Main class lives in baas_main.py, so the desktop
+    main.py is backed up and replaced with the Android launcher. After the
+    build the original main.py is restored.
+    """
+    desktop_main = proj_path('main.py')
+    android_main_src = self_path('src', 'main.py')
+    backup_main = proj_path('main.py.desktop_bak')
+
+    if not os.path.isfile(desktop_main):
+        raise FileNotFoundError(f'Desktop main.py not found: {desktop_main}')
+    if not os.path.isfile(android_main_src):
+        raise FileNotFoundError(f'Android main.py not found: {android_main_src}')
+    if os.path.isfile(backup_main):
+        raise FileExistsError(f'{backup_main} already exists; refusing to overwrite')
+
+    log('Backing up desktop main.py and installing Android entry point')
+    os.rename(desktop_main, backup_main)
+    shutil.copy(android_main_src, desktop_main)
+    log(f'Installed Android entry point at {desktop_main}')
+
+
+def _restore_main():
+    """Restore the desktop main.py after the Android build finishes."""
+    desktop_main = proj_path('main.py')
+    backup_main = proj_path('main.py.desktop_bak')
+
+    if os.path.isfile(backup_main):
+        if os.path.isfile(desktop_main):
+            log('Removing temporary Android entry point')
+            os.remove(desktop_main)
+        log('Restoring desktop main.py')
+        os.rename(backup_main, desktop_main)
+
+
 def _build():
     os.environ['ANDROIDSDK'] = proj_path(ANDROID_SDK_PATH)
     os.environ['ANDROIDNDK'] = proj_path(ANDROID_NDK_PATH)
@@ -214,9 +252,13 @@ def _build():
             raise ValueError(f'Pyjnius recipe does not force --no-isolation: {recipe_init}')
         log(f'Verified local recipe: {recipe_name}')
 
-    result = subprocess.run(['buildozer', 'android', 'debug'])
-    if result.returncode != 0:
-        raise SystemExit(result.returncode)
+    _swap_main_for_android()
+    try:
+        result = subprocess.run(['buildozer', 'android', 'debug'])
+        if result.returncode != 0:
+            raise SystemExit(result.returncode)
+    finally:
+        _restore_main()
 
 app = typer.Typer(help="Build helper for Android deployment")
 

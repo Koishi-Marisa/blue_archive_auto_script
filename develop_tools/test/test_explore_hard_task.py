@@ -11,7 +11,7 @@ forced to run even when they have already been completed.
 import unittest
 
 from core.config.config_set import ConfigSet
-from main import Main
+from baas_main import Main
 from module.explore_tasks.explore_task import explore_hard_task
 
 TEST_CONFIG_DIR = "cn"

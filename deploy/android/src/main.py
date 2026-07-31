@@ -3,9 +3,19 @@ import os
 import threading
 import traceback
 
-# Add the project root to Python path so BAAS modules can be imported
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, PROJECT_ROOT)
+# On Android, p4a launches the app with ANDROID_PRIVATE set to the app's
+# private files directory. Make that the working directory so config/logs
+# are written somewhere writable.
+_ANDROID_PRIVATE = os.environ.get('ANDROID_PRIVATE')
+if _ANDROID_PRIVATE and os.path.isdir(_ANDROID_PRIVATE):
+    os.chdir(_ANDROID_PRIVATE)
+
+# Add the project root to Python path so BAAS modules can be imported.
+# When packaged by buildozer, this file sits at the app root alongside
+# baas_main.py and the core/ package.
+_PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
 
 from PySide6.QtWidgets import (
     QApplication, QLabel, QVBoxLayout, QWidget, QPushButton,
@@ -16,6 +26,26 @@ from PySide6.QtCore import Qt, QObject, Signal
 
 class LogEmitter(QObject):
     log = Signal(str)
+
+
+def _android_log(tag, message):
+    """Write to Android logcat via jnius when available."""
+    try:
+        from jnius import autoclass
+        Log = autoclass("android.util.Log")
+        Log.i(tag, message)
+    except Exception:
+        pass
+
+
+def _write_crash_log(exc_info):
+    try:
+        crash_path = os.path.join(os.getcwd(), 'crash.log')
+        with open(crash_path, 'a', encoding='utf-8') as f:
+            f.write(exc_info)
+            f.write('\n')
+    except Exception:
+        pass
 
 
 def check_shizuku():
@@ -50,7 +80,7 @@ def ensure_android_config():
     """Create or update a minimal Android config set."""
     from core.config.config_set import ConfigSet
     config_dir = "android"
-    config_path = f"./config/{config_dir}/config.json"
+    config_path = os.path.join(os.getcwd(), "config", config_dir, "config.json")
     os.makedirs(os.path.dirname(config_path), exist_ok=True)
 
     default = {
@@ -86,7 +116,7 @@ def start_baas_task(log_callback):
             config = ensure_android_config()
 
             log_callback("Initializing BAAS Main...")
-            from main import Main
+            from baas_main import Main
             main_instance = Main(ocr_needed=["zh-cn"])
 
             log_callback("Creating BAAS thread...")
@@ -129,6 +159,7 @@ def main():
 
     def log(msg):
         emitter.log.emit(msg)
+        _android_log("BAAS_UI", str(msg))
 
     # Shizuku controls
     shizuku_layout = QHBoxLayout()
@@ -164,4 +195,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        exc = traceback.format_exc()
+        _write_crash_log(exc)
+        _android_log("BAAS_CRASH", exc)
+        raise
