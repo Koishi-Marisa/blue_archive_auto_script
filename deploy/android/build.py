@@ -45,7 +45,7 @@ def build_path(path: str):
     return os.path.abspath(os.path.join(proj_path(BUILD_DIR), path))
 
 def log(msg: str):
-    print(f'[{os.path.basename(__file__)}] {msg}')
+    print(f'[{os.path.basename(__file__)}] {msg}', flush=True)
 
 def render(src: str, dst: str, ctx: dict):
     """Copy and/or render a file to a destination file."""
@@ -197,6 +197,19 @@ def _build():
     os.environ['ANDROIDSDK'] = proj_path(ANDROID_SDK_PATH)
     os.environ['ANDROIDNDK'] = proj_path(ANDROID_NDK_PATH)
     _prepare_p4a()
+
+    # Verify local recipes were generated before buildozer starts.
+    local_recipes = build_path('recipes')
+    for recipe_name in ('pillow', 'numpy'):
+        recipe_init = os.path.join(local_recipes, recipe_name, '__init__.py')
+        if not os.path.isfile(recipe_init):
+            raise FileNotFoundError(f'Local recipe missing: {recipe_init}')
+        with open(recipe_init, 'r') as f:
+            content = f.read()
+        if recipe_name == 'pillow' and '_url' not in content:
+            raise ValueError(f'Pillow recipe does not define _url: {recipe_init}')
+        log(f'Verified local recipe: {recipe_name}')
+
     result = subprocess.run(['buildozer', 'android', 'debug'])
     if result.returncode != 0:
         raise SystemExit(result.returncode)

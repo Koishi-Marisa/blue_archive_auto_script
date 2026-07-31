@@ -9,8 +9,10 @@ class PillowRecipe(PyProjectRecipe):
     must be present in the hostpython used for building wheels.
     """
 
-    version = "11.3.0"
-    url = "https://pypi.python.org/packages/source/p/pillow/pillow-{version}.tar.gz"
+    # Use _version/_url directly so the url is available regardless of
+    # whether p4a's RecipeMeta rewrote the class attributes.
+    _version = "11.3.0"
+    _url = "https://pypi.python.org/packages/source/p/pillow/pillow-{version}.tar.gz"
     hostpython_prerequisites = ["setuptools>=77"]
 
     # Optional image libraries are disabled for Android cross-compilation.
