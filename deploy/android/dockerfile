@@ -1,20 +1,7 @@
-FROM mcr.microsoft.com/devcontainers/python:3.9
+FROM mcr.microsoft.com/devcontainers/python:3.11
 
 # Switch to root user to install packages
 USER root
-
-# Change apt source to Aliyun mirror
-RUN curl -sSL https://linuxmirrors.cn/main.sh -o /tmp/main.sh && \
-    bash /tmp/main.sh \
-      --source mirrors.aliyun.com \
-      --protocol http \
-      --use-intranet-source false \
-      --install-epel true \
-      --backup true \
-      --upgrade-software false \
-      --clean-cache false \
-      --ignore-backup-tips && \
-    rm -f /tmp/main.sh
 
 # Install system dependencies for OpenCV and other packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
