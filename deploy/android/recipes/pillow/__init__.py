@@ -40,15 +40,19 @@ class PillowRecipe(PyProjectRecipe):
         env = super().get_recipe_env(arch, **kwargs)
         # Point Pillow to the NDK zlib and disable host pkg-config so that
         # Pillow does not pick up x86_64 libraries/headers during cross-compile.
-        env["ZLIB_ROOT"] = (
-            f"{arch.ndk_lib_dir_versioned}:"
-            f"{self.ctx.ndk.sysroot_include_dir}"
-        )
+        # ZLIB_ROOT expects a single prefix with 'lib' and 'include' subdirs,
+        # so use CFLAGS/LDFLAGS to add the actual NDK paths instead.
+        sysroot_include = self.ctx.ndk.sysroot_include_dir
+        ndk_lib = arch.ndk_lib_dir_versioned
+        env["CFLAGS"] = f"{env.get('CFLAGS', '')} -I{sysroot_include}".strip()
+        env["LDFLAGS"] = f"{env.get('LDFLAGS', '')} -L{ndk_lib}".strip()
         env["PKG_CONFIG"] = "/bin/false"
         # Unset host paths that Pillow's setup.py inspects.
         for key in (
             "C_INCLUDE_PATH",
             "CPLUS_INCLUDE_PATH",
+            "CPATH",
+            "INCLUDE",
             "LIBRARY_PATH",
             "LD_RUN_PATH",
             "PKG_CONFIG_PATH",
