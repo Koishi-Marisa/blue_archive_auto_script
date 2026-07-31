@@ -202,7 +202,7 @@ def _swap_main_for_android():
     build the original main.py is restored.
     """
     desktop_main = proj_path('main.py')
-    android_main_src = self_path('src', 'main.py')
+    android_main_src = self_path(os.path.join('src', 'main.py'))
     backup_main = proj_path('main.py.desktop_bak')
 
     if not os.path.isfile(desktop_main):
