@@ -5,7 +5,11 @@ class NumpyRecipe(BaseNumpyRecipe):
     # meson-python is required by numpy's PEP 517 build backend.
     # Build isolation is disabled so the p4a-built hostpython can import the
     # backend from hostpython site-packages prepared below.
-    hostpython_prerequisites = BaseNumpyRecipe.hostpython_prerequisites + [
+    # Pin Cython to the same minor line pyjnius needs so the shared hostpython
+    # site-packages does not end up with multiple conflicting Cython versions.
+    hostpython_prerequisites = [
+        "Cython~=3.1.2",
+        "numpy",
         "meson-python",
     ]
 

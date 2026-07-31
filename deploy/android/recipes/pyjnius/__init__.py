@@ -1,6 +1,11 @@
 import os
+import shutil
+import subprocess
 
+from pythonforandroid.logger import info
 from pythonforandroid.recipes.pyjnius import PyjniusRecipe as BasePyjniusRecipe
+from pythonforandroid.toolchain import shprint
+import sh
 
 
 class PyjniusRecipe(BasePyjniusRecipe):
@@ -9,9 +14,69 @@ class PyjniusRecipe(BasePyjniusRecipe):
     # setuptools.build_meta in an isolated venv, so disable isolation and
     # depend on a modern setuptools recipe that is installed into hostpython.
     depends = BasePyjniusRecipe.depends + ['setuptools']
-    hostpython_prerequisites = BasePyjniusRecipe.hostpython_prerequisites + [
+    # Pin Cython to the exact minor line pyjnius declares in pyproject.toml
+    # (Cython~=3.1.2). Other recipes may leave newer/older Cython dist-info
+    # directories in the shared hostpython site-packages, which confuse
+    # importlib.metadata and cause the PEP 517 build-system check to fail.
+    hostpython_prerequisites = [
+        "Cython~=3.1.2",
         "setuptools==80.10.2",
     ]
+
+    def _cleanup_hostpython_cython(self):
+        """Remove all Cython packages and distribution metadata from hostpython.
+
+        The shared hostpython environment accumulates Cython versions installed
+        by multiple recipes (e.g. the cython target recipe installs 0.29.36,
+        numpy installs 3.2.9). Leftover dist-info directories make
+        `importlib.metadata.version('Cython')` return the wrong version and
+        break pyjnius's `Cython~=3.1.2` requirement check.
+        """
+        site_dir = self.hostpython_site_dir
+        if not os.path.isdir(site_dir):
+            return
+        removed = []
+        for name in os.listdir(site_dir):
+            lower = name.lower()
+            path = os.path.join(site_dir, name)
+            if lower in ('cython', 'cython.py'):
+                if os.path.isdir(path):
+                    shutil.rmtree(path)
+                else:
+                    os.remove(path)
+                removed.append(name)
+            elif lower.startswith('cython-') and (
+                lower.endswith('.dist-info') or '.egg-info' in lower
+            ):
+                if os.path.isdir(path):
+                    shutil.rmtree(path)
+                else:
+                    os.remove(path)
+                removed.append(name)
+        if removed:
+            info(f'PYJNIUS: cleaned up conflicting Cython installations: {removed}')
+
+    def _install_cython_cleanly(self):
+        """Force a single Cython~=3.1.2 installation in hostpython."""
+        self._cleanup_hostpython_cython()
+        pip_options = [
+            "install",
+            "Cython~=3.1.2",
+            "--target", self.hostpython_site_dir,
+            "--python-version", self.ctx.python_recipe.version,
+            "--only-binary=:all:",
+            "--force-reinstall",
+            "--no-deps",
+        ]
+        shprint(sh.pip, *pip_options)
+        out = subprocess.check_output(
+            [self.real_hostpython_location, '-c',
+             'import importlib.metadata; print("Cython version:", '
+             'importlib.metadata.version("Cython")); import Cython; '
+             'print("Cython package:", Cython.__file__)'],
+            text=True
+        )
+        info(f'PYJNIUS: Cython verification:\n{out}')
 
     def get_recipe_env(self, arch, **kwargs):
         env = super().get_recipe_env(arch, **kwargs)
@@ -29,33 +94,12 @@ class PyjniusRecipe(BasePyjniusRecipe):
         return env
 
     def build_arch(self, arch):
+        # Ensure only Cython~=3.1.2 is visible before the PEP 517 build runs.
+        self._install_cython_cleanly()
         # Force --no-isolation because buildozer resets p4a after our build.py
         # patch, which would otherwise leave PyProjectRecipe using isolated
         # venvs that cannot import setuptools.build_meta.
         self.extra_build_args = ["--no-isolation"] + list(self.extra_build_args)
-        # Debug: verify Cython is visible from the copied python before build.
-        hostpython_site = self.hostpython_site_dir
-        python_exe = self.ctx.python_recipe.python_exe
-        from pythonforandroid.logger import info
-        info(f'PYJNIUS DEBUG: hostpython_site_dir={hostpython_site}')
-        info(f'PYJNIUS DEBUG: python_exe={python_exe}')
-        info(f'PYJNIUS DEBUG: PYTHONPATH will be {self.get_recipe_env(arch, with_flags_in_cc=True).get("PYTHONPATH", "")}')
-        import subprocess
-        try:
-            out = subprocess.check_output(
-                [python_exe, '-c',
-                 'import sys; print(sys.path); import importlib.util; '
-                 'print("cython spec:", importlib.util.find_spec("Cython"))'],
-                env=self.get_recipe_env(arch, with_flags_in_cc=True),
-                stderr=subprocess.STDOUT, text=True
-            )
-            info(f'PYJNIUS DEBUG: import check output:\n{out}')
-        except Exception as e:
-            info(f'PYJNIUS DEBUG: import check failed: {e}')
-        try:
-            info(f'PYJNIUS DEBUG: listing {hostpython_site}: {os.listdir(hostpython_site)}')
-        except Exception as e:
-            info(f'PYJNIUS DEBUG: listing failed: {e}')
         super().build_arch(arch)
 
 
