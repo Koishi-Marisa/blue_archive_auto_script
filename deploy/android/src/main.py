@@ -14,9 +14,9 @@ def _android_log(tag, message):
 
 
 def _write_file(name, text):
-    """Persist text to a file in the current working directory."""
+    """Persist text to a file in the private files directory."""
     try:
-        path = os.path.join(os.getcwd(), name)
+        path = os.path.join(_ANDROID_PRIVATE, name)
         with open(path, 'a', encoding='utf-8') as f:
             f.write(text)
             f.write('\n')
@@ -36,13 +36,13 @@ _log(f"ANDROID_ARGUMENT={os.environ.get('ANDROID_ARGUMENT')}")
 _log(f"ANDROID_ENTRYPOINT={os.environ.get('ANDROID_ENTRYPOINT')}")
 _log(f"ANDROID_UNPACK={os.environ.get('ANDROID_UNPACK')}")
 
-# On Android, p4a launches the app with ANDROID_PRIVATE set to the app's
-# private files directory. Make that the working directory so config/logs
-# are written somewhere writable.
+# p4a keeps the working directory at the app root (where main.py and config/
+# live). Do NOT change it here, otherwise relative paths like config/static.json
+# break. Use ANDROID_PRIVATE only for writable logs.
 _ANDROID_PRIVATE = os.environ.get('ANDROID_PRIVATE')
-if _ANDROID_PRIVATE and os.path.isdir(_ANDROID_PRIVATE):
-    os.chdir(_ANDROID_PRIVATE)
-    _log(f"changed cwd to {os.getcwd()}")
+if not _ANDROID_PRIVATE or not os.path.isdir(_ANDROID_PRIVATE):
+    _ANDROID_PRIVATE = os.getcwd()
+_log(f"ANDROID_PRIVATE={_ANDROID_PRIVATE}")
 
 # Add the project root to Python path so BAAS modules can be imported.
 _PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
