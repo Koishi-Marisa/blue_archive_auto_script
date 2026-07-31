@@ -1,3 +1,5 @@
+import os
+
 from pythonforandroid.recipe import PyProjectRecipe
 
 
@@ -33,6 +35,26 @@ class PillowRecipe(PyProjectRecipe):
         "harfbuzz=disable",
         "avif=disable",
     ]
+
+    def get_recipe_env(self, arch, **kwargs):
+        env = super().get_recipe_env(arch, **kwargs)
+        # Point Pillow to the NDK zlib and disable host pkg-config so that
+        # Pillow does not pick up x86_64 libraries/headers during cross-compile.
+        env["ZLIB_ROOT"] = (
+            f"{arch.ndk_lib_dir_versioned}:"
+            f"{self.ctx.ndk.sysroot_include_dir}"
+        )
+        env["PKG_CONFIG"] = "/bin/false"
+        # Unset host paths that Pillow's setup.py inspects.
+        for key in (
+            "C_INCLUDE_PATH",
+            "CPLUS_INCLUDE_PATH",
+            "LIBRARY_PATH",
+            "LD_RUN_PATH",
+            "PKG_CONFIG_PATH",
+        ):
+            env.pop(key, None)
+        return env
 
     def build_arch(self, arch):
         # Force --no-isolation because buildozer resets p4a after our build.py
