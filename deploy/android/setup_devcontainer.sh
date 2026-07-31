@@ -12,7 +12,7 @@ mkdir -p "${PYSIDE6_ANDROID_DEPLOY}"
 ANDROID_SDK_DIR="${PYSIDE6_ANDROID_DEPLOY}/android-sdk"
 CMDLINE_TOOLS_DIR="${ANDROID_SDK_DIR}/cmdline-tools"
 
-if [ -d "${CMDLINE_TOOLS_DIR}/bin" ]; then
+if [ -d "${CMDLINE_TOOLS_DIR}/latest/bin" ]; then
     echo "Android SDK already installed."
 else
     echo "Downloading Android SDK command line tools..."
@@ -20,14 +20,19 @@ else
     cd "${ANDROID_SDK_DIR}"
     wget -q https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
     unzip -q commandlinetools-linux-13114758_latest.zip
+    # Move tools into the expected cmdline-tools/latest/ location
+    mkdir -p cmdline-tools/latest
+    mv cmdline-tools/bin cmdline-tools/latest/
+    mv cmdline-tools/lib cmdline-tools/latest/
+    rm -rf cmdline-tools/NOTICE.txt cmdline-tools/source.properties 2>/dev/null || true
     rm commandlinetools-linux-13114758_latest.zip
     cd -
     # accept sdk license
-    yes | "${CMDLINE_TOOLS_DIR}/bin/sdkmanager" --licenses || true
+    yes | "${CMDLINE_TOOLS_DIR}/latest/bin/sdkmanager" --licenses || true
 fi
 
 # Install required SDK platforms and build tools
-yes | "${CMDLINE_TOOLS_DIR}/bin/sdkmanager" "platforms;android-24" "build-tools;24.0.3" || true
+yes | "${CMDLINE_TOOLS_DIR}/latest/bin/sdkmanager" "platforms;android-24" "build-tools;24.0.3" || true
 
 ########## Download NDK ##########
 ANDROID_NDK_VERSION="r26b"
