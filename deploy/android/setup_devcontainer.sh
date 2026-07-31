@@ -96,7 +96,7 @@ if [ ! -f pyside6-*.whl ] && [ ! -f PySide6-*.whl ]; then
 fi
 if [ ! -f shiboken6-*.whl ]; then
     echo "shiboken6 wheels not found, downloading..."
-    wget -q https://download.qt.io/official_releases/QtForPython/shiboken6/shiboken6-6.9.0-6.9.0-cp311-cp311-android_aarch64.whl
+    wget -q https://download.qt.io/official_releases/QtForPython/shiboken6/shiboken6-6.9.2-6.9.2-cp311-cp311-android_aarch64.whl
 fi
 cd ..
 

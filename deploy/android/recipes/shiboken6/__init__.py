@@ -11,9 +11,9 @@ from pythonforandroid.recipe import PythonRecipe
 
 
 class ShibokenRecipe(PythonRecipe):
-    version = '6.9.0'
-    url = "https://download.qt.io/official_releases/QtForPython/shiboken6/shiboken6-6.9.0-6.9.0-cp311-cp311-android_aarch64.whl"
-    wheel_name = 'shiboken6-6.9.0-6.9.0-cp311-cp311-android_aarch64.whl'
+    version = '6.9.2'
+    url = "https://download.qt.io/official_releases/QtForPython/shiboken6/shiboken6-6.9.2-6.9.2-cp311-cp311-android_aarch64.whl"
+    wheel_name = 'shiboken6-6.9.2-6.9.2-cp311-cp311-android_aarch64.whl'
 
     call_hostpython_via_targetpython = False
     install_in_hostpython = False

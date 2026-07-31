@@ -29,7 +29,7 @@ JARS_PATH = [
     'deploy/android/jar/PySide6/jar/Qt6AndroidBindings.jar'
 ]
 PYSIDE6_WHEEL_BASIC_URL = 'https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-6.9.2-6.9.2-cp311-cp311-android_'
-SHIBOKEN6_WHEEL_BASIC_URL = 'https://download.qt.io/official_releases/QtForPython/shiboken6/shiboken6-6.9.0-6.9.0-cp311-cp311-android_'
+SHIBOKEN6_WHEEL_BASIC_URL = 'https://download.qt.io/official_releases/QtForPython/shiboken6/shiboken6-6.9.2-6.9.2-cp311-cp311-android_'
 GRADLE_WRAPPER_TEMPLATE = '.buildozer/android/platform/build-{arch}/dists/boa/gradlew'
 
 def cwd_path(path: str):
@@ -117,7 +117,7 @@ def ensure_pyside6_shiboken6(arch):
     pyside6_url = PYSIDE6_WHEEL_BASIC_URL + wheel_tag
     download_artifact(pyside6_path, pyside6_url)
 
-    shiboken6_path = build_path(f'shiboken6-6.9.0-6.9.0-cp311-cp311-android_{wheel_tag}')
+    shiboken6_path = build_path(f'shiboken6-6.9.2-6.9.2-cp311-cp311-android_{wheel_tag}')
     shiboken6_url = SHIBOKEN6_WHEEL_BASIC_URL + wheel_tag
     download_artifact(shiboken6_path, shiboken6_url)
 

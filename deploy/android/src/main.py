@@ -1,31 +1,6 @@
-import sys
 import os
-import threading
+import sys
 import traceback
-
-# On Android, p4a launches the app with ANDROID_PRIVATE set to the app's
-# private files directory. Make that the working directory so config/logs
-# are written somewhere writable.
-_ANDROID_PRIVATE = os.environ.get('ANDROID_PRIVATE')
-if _ANDROID_PRIVATE and os.path.isdir(_ANDROID_PRIVATE):
-    os.chdir(_ANDROID_PRIVATE)
-
-# Add the project root to Python path so BAAS modules can be imported.
-# When packaged by buildozer, this file sits at the app root alongside
-# baas_main.py and the core/ package.
-_PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
-if _PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, _PROJECT_ROOT)
-
-from PySide6.QtWidgets import (
-    QApplication, QLabel, QVBoxLayout, QWidget, QPushButton,
-    QTextEdit, QHBoxLayout, QLineEdit
-)
-from PySide6.QtCore import Qt, QObject, Signal
-
-
-class LogEmitter(QObject):
-    log = Signal(str)
 
 
 def _android_log(tag, message):
@@ -33,19 +8,46 @@ def _android_log(tag, message):
     try:
         from jnius import autoclass
         Log = autoclass("android.util.Log")
-        Log.i(tag, message)
+        Log.i(tag, str(message))
     except Exception:
         pass
 
 
-def _write_crash_log(exc_info):
+def _write_file(name, text):
+    """Persist text to a file in the current working directory."""
     try:
-        crash_path = os.path.join(os.getcwd(), 'crash.log')
-        with open(crash_path, 'a', encoding='utf-8') as f:
-            f.write(exc_info)
+        path = os.path.join(os.getcwd(), name)
+        with open(path, 'a', encoding='utf-8') as f:
+            f.write(text)
             f.write('\n')
     except Exception:
         pass
+
+
+def _log(msg):
+    _android_log("BAAS_UI", msg)
+
+
+# Record startup diagnostics as early as possible.
+_log("main.py module loaded")
+_log(f"cwd={os.getcwd()}")
+_log(f"ANDROID_PRIVATE={os.environ.get('ANDROID_PRIVATE')}")
+_log(f"ANDROID_ARGUMENT={os.environ.get('ANDROID_ARGUMENT')}")
+_log(f"ANDROID_ENTRYPOINT={os.environ.get('ANDROID_ENTRYPOINT')}")
+_log(f"ANDROID_UNPACK={os.environ.get('ANDROID_UNPACK')}")
+
+# On Android, p4a launches the app with ANDROID_PRIVATE set to the app's
+# private files directory. Make that the working directory so config/logs
+# are written somewhere writable.
+_ANDROID_PRIVATE = os.environ.get('ANDROID_PRIVATE')
+if _ANDROID_PRIVATE and os.path.isdir(_ANDROID_PRIVATE):
+    os.chdir(_ANDROID_PRIVATE)
+    _log(f"changed cwd to {os.getcwd()}")
+
+# Add the project root to Python path so BAAS modules can be imported.
+_PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
 
 
 def check_shizuku():
@@ -78,7 +80,9 @@ def run_shell(command):
 
 def ensure_android_config():
     """Create or update a minimal Android config set."""
+    import json
     from core.config.config_set import ConfigSet
+
     config_dir = "android"
     config_path = os.path.join(os.getcwd(), "config", config_dir, "config.json")
     os.makedirs(os.path.dirname(config_path), exist_ok=True)
@@ -92,7 +96,6 @@ def ensure_android_config():
         "server": "官服",
     }
 
-    import json
     if os.path.exists(config_path):
         with open(config_path, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -110,6 +113,8 @@ def ensure_android_config():
 
 
 def start_baas_task(log_callback):
+    import threading
+
     def run():
         try:
             log_callback("Ensuring Android config...")
@@ -133,15 +138,45 @@ def start_baas_task(log_callback):
             log_callback("BAAS ready. Starting explore_activity_mission...")
             b_thread.solve("explore_activity_mission")
             log_callback("Task finished.")
-        except Exception as e:
+        except Exception:
             log_callback("BAAS error:\n" + traceback.format_exc())
 
     threading.Thread(target=run, daemon=True).start()
 
 
 def main():
-    app = QApplication(sys.argv)
+    """Application entry point invoked by python-for-android Qt bootstrap.
 
+    PySide6/Qt imports are deferred until this function to avoid initializing
+    Qt before the bootstrap has finished setting up the Qt main loop.
+    """
+    _log("main() started")
+
+    # Force the Android platform plugin and avoid picking up a desktop plugin.
+    os.environ.setdefault("QT_QPA_PLATFORM", "android")
+    _log("QT_QPA_PLATFORM=" + os.environ.get("QT_QPA_PLATFORM", "<not set>"))
+
+    _log("Importing PySide6.QtCore...")
+    from PySide6.QtCore import Qt, QObject, Signal, QCoreApplication
+    _log("Importing PySide6.QtWidgets...")
+    from PySide6.QtWidgets import (
+        QApplication, QLabel, QVBoxLayout, QWidget, QPushButton,
+        QTextEdit, QHBoxLayout, QLineEdit
+    )
+    _log("PySide6 imports complete")
+
+    class LogEmitter(QObject):
+        log = Signal(str)
+
+    _log("Checking existing QApplication instance...")
+    app = QApplication.instance()
+    if app is None:
+        _log("Creating new QApplication...")
+        app = QApplication(sys.argv)
+    else:
+        _log("Reusing existing QApplication instance")
+
+    _log("Creating main window...")
     window = QWidget()
     window.setWindowTitle("BAAS on Android")
     layout = QVBoxLayout(window)
@@ -158,8 +193,9 @@ def main():
     emitter.log.connect(log_box.append)
 
     def log(msg):
-        emitter.log.emit(msg)
-        _android_log("BAAS_UI", str(msg))
+        text = str(msg)
+        emitter.log.emit(text)
+        _android_log("BAAS_UI", text)
 
     # Shizuku controls
     shizuku_layout = QHBoxLayout()
@@ -191,14 +227,20 @@ def main():
 
     window.show()
     log("UI loaded. Please authorize Shizuku before starting BAAS.")
-    sys.exit(app.exec())
+    _log("Entering QApplication event loop...")
+    return app.exec()
 
 
 if __name__ == "__main__":
     try:
-        main()
+        sys.exit(main())
+    except SystemExit:
+        raise
     except Exception:
         exc = traceback.format_exc()
-        _write_crash_log(exc)
+        _write_file('crash.log', exc)
         _android_log("BAAS_CRASH", exc)
-        raise
+        # Do not re-raise: a Python exception here would propagate through
+        # PyRun_SimpleFile and can cause the p4a C bootstrap to crash.
+        # Returning a non-zero status is enough to report failure.
+        sys.exit(1)
