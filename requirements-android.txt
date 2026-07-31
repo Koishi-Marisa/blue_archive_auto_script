@@ -12,5 +12,11 @@ tqdm
 tomli==2.2.1
 tomli_w==1.2.0
 pillow
+retry
+adbutils==2.2.1
+lxml
+colorama
+deprecation
+packaging
 # lmdb is used for some caches; optional on Android
 # lmdb
