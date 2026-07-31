@@ -4,8 +4,6 @@ import subprocess
 
 from pythonforandroid.logger import info
 from pythonforandroid.recipes.pyjnius import PyjniusRecipe as BasePyjniusRecipe
-from pythonforandroid.toolchain import shprint
-import sh
 
 
 class PyjniusRecipe(BasePyjniusRecipe):
@@ -57,18 +55,19 @@ class PyjniusRecipe(BasePyjniusRecipe):
             info(f'PYJNIUS: cleaned up conflicting Cython installations: {removed}')
 
     def _install_cython_cleanly(self):
-        """Force a single Cython~=3.1.2 installation in hostpython."""
+        """Force a single Cython~=3.1.2 installation in hostpython.
+
+        Use the hostpython interpreter's own pip so the package and its
+        dist-info metadata are installed consistently into hostpython's
+        site-packages. System pip with ``--target`` can leave metadata in a
+        state that importlib.metadata cannot discover.
+        """
         self._cleanup_hostpython_cython()
-        pip_options = [
-            "install",
-            "Cython~=3.1.2",
-            "--target", self.hostpython_site_dir,
-            "--python-version", self.ctx.python_recipe.version,
-            "--only-binary=:all:",
-            "--force-reinstall",
-            "--no-deps",
-        ]
-        shprint(sh.pip, *pip_options)
+        subprocess.check_output(
+            [self.real_hostpython_location, '-m', 'pip', 'install',
+             'Cython~=3.1.2', '--force-reinstall', '--no-deps'],
+            stderr=subprocess.STDOUT, text=True
+        )
         out = subprocess.check_output(
             [self.real_hostpython_location, '-c',
              'import importlib.metadata; print("Cython version:", '
