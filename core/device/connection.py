@@ -25,8 +25,8 @@ class Connection:
         self.package = self.config.get("package_name") if hasattr(self.config, "package_name") else None
         self.activity = None
 
-        if getattr(self.config, "screenshot_method", None) == "android" or \
-           getattr(self.config, "control_method", None) == "android":
+        if getattr(self.config, "screenshot_method", None) in ("android", "shizuku") or \
+           getattr(self.config, "control_method", None) in ("android", "shizuku"):
             self._is_android_device = True
             self._init_android_bridge()
         elif self.config.server in ["Steam国际服", "日服PC端"]:
