@@ -9,7 +9,7 @@ import top.qwq123.baas.bridge.BaasBridge;
 public class MainActivity extends QtActivity {
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         BaasBridge.init(this);
     }
