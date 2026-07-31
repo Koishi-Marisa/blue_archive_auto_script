@@ -34,10 +34,15 @@ fi
 # Install required SDK platforms and build tools
 yes | "${CMDLINE_TOOLS_DIR}/latest/bin/sdkmanager" "platforms;android-24" "build-tools;24.0.3" || true
 
-# Create legacy tools/bin path expected by buildozer/python-for-android
+# Create legacy tools/ path expected by buildozer/python-for-android.
+# sdkmanager's launcher script resolves ../lib relative to its own location,
+# so both bin and lib must be reachable from tools/.
 mkdir -p "${ANDROID_SDK_DIR}/tools"
 if [ ! -e "${ANDROID_SDK_DIR}/tools/bin" ]; then
     ln -sfn "${CMDLINE_TOOLS_DIR}/latest/bin" "${ANDROID_SDK_DIR}/tools/bin"
+fi
+if [ ! -e "${ANDROID_SDK_DIR}/tools/lib" ]; then
+    ln -sfn "${CMDLINE_TOOLS_DIR}/latest/lib" "${ANDROID_SDK_DIR}/tools/lib"
 fi
 
 ########## Download NDK ##########
