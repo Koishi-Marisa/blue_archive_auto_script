@@ -1,0 +1,66 @@
+name: Build PySide6 Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'pyside6-v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: |
+          docker build -f deploy/android/dockerfile -t boa-android-build .
+
+      - name: Build APK
+        run: |
+          mkdir -p bin
+          docker run --rm \
+            -v "$(pwd):/work" \
+            -w /work \
+            boa-android-build \
+            bash -lc "export JAVA_HOME=/opt/java/openjdk-17; export PATH=\$JAVA_HOME/bin:\$PATH; bash deploy/android/setup_devcontainer.sh && source .venv/bin/activate && python deploy/android/build.py all"
+
+      - name: Rename APK
+        run: |
+          TAG="${GITHUB_REF_NAME:-pyside6-dev}"
+          if [ -f boa-debug.apk ]; then
+            mv boa-debug.apk "BAAS-PySide6-${TAG}.apk"
+          elif [ -f bin/*.apk ]; then
+            cd bin && mv *.apk "../BAAS-PySide6-${TAG}.apk" && cd ..
+          fi
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyside6-apk
+          path: BAAS-PySide6-*.apk
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/pyside6-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+          files: BAAS-PySide6-*.apk
+          body: |
+            BAAS PySide6 Android build with original PC UI.
