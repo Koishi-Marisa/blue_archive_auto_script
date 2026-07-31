@@ -14,37 +14,53 @@ if sys.stdin is None:
 import shutil
 import os
 from core.exception import OcrInternalError
-from dulwich import porcelain
-from dulwich.repo import Repo
 import platform
 
-if sys.platform not in ['win32', 'linux', 'darwin']:
-    raise Exception("Ocr Unsupported platform " + sys.platform)
+try:
+    from dulwich import porcelain
+    from dulwich.repo import Repo
+except Exception:
+    porcelain = None
+    Repo = None
 
 OCR_SERVER_PREBUILD_URL = "https://gitee.com/pur1fy/baas_-cpp_prebuild.git"
 
 SERVER_INSTALLER_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 SERVER_BIN_DIR = os.path.join(SERVER_INSTALLER_DIR_PATH, 'bin')
 
-branch = {
-    'win32': {
-        'amd64': 'windows-x64',
-    },
-    'linux': {
-        'x86_64': 'linux-x64',
-    },
-    'darwin': {
-        'arm64': 'macos-arm64',
-    },
-}
-branch = branch[sys.platform]
-arch = platform.machine().lower()
-if arch not in branch:
-    raise Exception("Unsupported machine architecture " + arch)
-branch = branch[arch]
+# Android (p4a) cannot run the desktop OCR server binary. Degrade gracefully
+# instead of raising at import time.
+_IS_ANDROID = sys.platform == 'android' or os.environ.get('P4A_BOOTSTRAP') is not None
+
+if _IS_ANDROID:
+    branch = None
+elif sys.platform not in ['win32', 'linux', 'darwin']:
+    raise Exception("Ocr Unsupported platform " + sys.platform)
+else:
+    branch = {
+        'win32': {
+            'amd64': 'windows-x64',
+        },
+        'linux': {
+            'x86_64': 'linux-x64',
+        },
+        'darwin': {
+            'arm64': 'macos-arm64',
+        },
+    }[sys.platform]
+    arch = platform.machine().lower()
+    if arch not in branch:
+        raise Exception("Unsupported machine architecture " + arch)
+    branch = branch[arch]
 
 
 def check_git(logger):
+    if _IS_ANDROID:
+        logger.info("OCR server update is not supported on Android, skipping.")
+        return
+    if Repo is None or porcelain is None:
+        logger.warning("dulwich is not available, skipping OCR server update.")
+        return
     if not os.path.exists(SERVER_BIN_DIR + '/.git'):
         clone_repo(logger)
     else:
