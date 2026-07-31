@@ -33,6 +33,29 @@ class PyjniusRecipe(BasePyjniusRecipe):
         # patch, which would otherwise leave PyProjectRecipe using isolated
         # venvs that cannot import setuptools.build_meta.
         self.extra_build_args = ["--no-isolation"] + list(self.extra_build_args)
+        # Debug: verify Cython is visible from the copied python before build.
+        hostpython_site = self.hostpython_site_dir
+        python_exe = self.ctx.python_recipe.python_exe
+        from pythonforandroid.logger import info
+        info(f'PYJNIUS DEBUG: hostpython_site_dir={hostpython_site}')
+        info(f'PYJNIUS DEBUG: python_exe={python_exe}')
+        info(f'PYJNIUS DEBUG: PYTHONPATH will be {self.get_recipe_env(arch, with_flags_in_cc=True).get("PYTHONPATH", "")}')
+        import subprocess
+        try:
+            out = subprocess.check_output(
+                [python_exe, '-c',
+                 'import sys; print(sys.path); import importlib.util; '
+                 'print("cython spec:", importlib.util.find_spec("Cython"))'],
+                env=self.get_recipe_env(arch, with_flags_in_cc=True),
+                stderr=subprocess.STDOUT, text=True
+            )
+            info(f'PYJNIUS DEBUG: import check output:\n{out}')
+        except Exception as e:
+            info(f'PYJNIUS DEBUG: import check failed: {e}')
+        try:
+            info(f'PYJNIUS DEBUG: listing {hostpython_site}: {os.listdir(hostpython_site)}')
+        except Exception as e:
+            info(f'PYJNIUS DEBUG: listing failed: {e}')
         super().build_arch(arch)
 
 
