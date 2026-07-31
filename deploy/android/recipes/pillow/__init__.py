@@ -15,7 +15,10 @@ class PillowRecipe(PyProjectRecipe):
     # whether p4a's RecipeMeta rewrote the class attributes.
     _version = "11.3.0"
     _url = "https://pypi.python.org/packages/source/p/pillow/pillow-{version}.tar.gz"
-    hostpython_prerequisites = ["setuptools>=77"]
+    # Pillow 11.3 needs setuptools>=77 for its PEP 517 backend, but
+    # setuptools>=81 removed the dry_run parameter used by p4a's setup.py
+    # install path, so pin a compatible upper bound.
+    hostpython_prerequisites = ["setuptools>=77,<81"]
 
     # Optional image libraries are disabled for Android cross-compilation.
     # Only zlib is kept because Pillow requires it and the Android NDK
