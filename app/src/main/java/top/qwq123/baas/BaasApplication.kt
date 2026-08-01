@@ -4,6 +4,7 @@ import android.app.Application
 import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
 import top.qwq123.baas.bridge.BaasBridge
+import top.qwq123.baas.bridge.BaasCoreNative
 
 class BaasApplication : Application() {
     override fun onCreate() {
@@ -12,5 +13,6 @@ class BaasApplication : Application() {
             Python.start(AndroidPlatform(this))
         }
         BaasBridge.init(this)
+        BaasCoreNative.nativeInit(this)
     }
 }

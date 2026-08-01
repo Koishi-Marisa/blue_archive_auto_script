@@ -40,6 +40,7 @@ import com.chaquo.python.Python
 import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
 import top.qwq123.baas.bridge.BaasBridge
+import top.qwq123.baas.bridge.BaasCoreNative
 import top.qwq123.baas.domain.service.TaskExecutionService
 import top.qwq123.baas.shizuku.ShizukuHelper
 
@@ -277,6 +278,57 @@ fun MainScreen(
                         append("Diag:\n${BaasBridge.diagnosticInfo()}")
                     }) {
                         Text("Refresh Diagnostic")
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                Text("C++ Core", style = MaterialTheme.typography.titleMedium)
+                Text("Version: ${BaasCoreNative.nativeGetVersion()}", style = MaterialTheme.typography.bodySmall)
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = {
+                        val ok = BaasCoreNative.nativeLoadConfig("""{"server":"CN","screenshot_method":"shizuku","control_method":"shizuku"}""")
+                        append("Cpp loadConfig: $ok")
+                    }) {
+                        Text("Load Config")
+                    }
+                    Button(onClick = {
+                        append("Cpp config server: ${BaasCoreNative.nativeGetConfigValue("server")}")
+                    }) {
+                        Text("Read Config")
+                    }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = {
+                        val jpeg = BaasCoreNative.nativeScreenshot()
+                        append("Cpp screenshot: ${jpeg?.size ?: 0} bytes, size=${BaasCoreNative.nativeScreenshotSize()}")
+                    }) {
+                        Text("Cpp Screenshot")
+                    }
+                    Button(onClick = {
+                        val (w, h) = BaasCoreNative.screenshotSizePair()
+                        append("Cpp tap center: ${BaasCoreNative.nativeClick(w / 2, h / 2)}")
+                    }) {
+                        Text("Cpp Tap")
+                    }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = {
+                        append("Cpp RGB check: ${BaasCoreNative.nativeRgbInRange(100, 100, 0, 255, 0, 255, 0, 255)}")
+                    }) {
+                        Text("Cpp RGB")
+                    }
+                    Button(onClick = {
+                        val templ = BaasCoreNative.loadAssetTemplate(context, "ic_maa_logo.png")
+                        if (templ != null) {
+                            append("Cpp findTemplate: ${BaasCoreNative.nativeFindTemplate(templ, 0.7)}")
+                        } else {
+                            append("Cpp findTemplate: template not found")
+                        }
+                    }) {
+                        Text("Cpp Template")
                     }
                 }
 

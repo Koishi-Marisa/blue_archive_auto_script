@@ -78,30 +78,37 @@ Release 构建支持使用 GitHub Secrets 签名：
 
 未配置时，Release APK 为未签名状态。
 
+## C++ 核心（android-cpp-core 分支）
+
+本分支在保留 Chaquopy Python 运行时与 Compose UI 的基础上，新增了原生 C++ 核心：
+
+- 路径：`app/src/main/cpp/`
+- 库名：`libbaas-core.so`
+- JNI 入口：`top.qwq123.baas.bridge.BaasCoreNative`
+- 功能：
+  - 通过 `BaasBridge` 回调获取 Shizuku 截图与注入触控事件
+  - JPEG 编解码（调用 Android `BitmapFactory`）
+  - RGB 范围检查
+  - 简单 NCC 模板匹配
+  - JSON 配置加载
+
+UI 调试页面已增加 **C++ Core** 区域，可验证：
+- 配置读写
+- 截图与尺寸
+- 中心点击
+- RGB 检查
+- 模板查找
+
 ## 已知占位项 / 待实现
 
-当前 Android 侧仅为“可编译的空壳”，以下逻辑需要后续开发：
+1. **任务执行**
+   - `TaskExecutionService`、`ScheduleExecutionService` 中调用 C++ 核心或 BAAS Python 入口。
 
-1. **Python 运行时嵌入**
-   - 需要选择并接入 Android Python 方案，例如：
-     - [Chaquopy](https://chaquo.com/chaquopy/)
-     - [BeeWare/Toga](https://beeware.org/)
-     - [Kivy/python-for-android](https://github.com/kivy/python-for-android)
-   - 在 `BaasApplication` 中初始化 Python 解释器，并把 `assets/baas/` 解压到可写目录。
-
-2. **任务执行**
-   - `TaskExecutionService`、`ScheduleExecutionService` 中调用 BAAS Python 入口。
-
-3. **截图/触控**
-   - BAAS 原依赖 ADB/uiautomator2，在 Android 侧需要改为：
-     - Shizuku + MediaProjection 截图
-     - Shizuku/AccessibilityService 注入触控事件
-
-4. **UI 替换**
+2. **UI 替换**
    - 当前保留 MAA-Meow 的 Compose UI 骨架和字符串，后续可按 BAAS 需求重写。
 
-5. **OCR 适配**
-   - BAAS OCR 服务端目前为外部二进制，在 Android 上需要替换为 NCNN/PaddleLite 等端侧方案。
+3. **OCR 适配**
+   - C++ 核心目前不直接做 OCR；Android 侧 OCR 仍通过 `OcrService` + MLKit 完成。
 
 ## 注意事项
 
