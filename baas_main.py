@@ -1,11 +1,16 @@
 import json
 import os
+import sys
 
 from core.ocr import ocr
 from core.utils import Logger
 from core.Baas_thread import Baas_thread
 from core.config.config_set import ConfigSet
 from core.ocr.baas_ocr_client.server_installer import check_git
+
+
+def _is_android():
+    return sys.platform == 'android' or os.environ.get('P4A_BOOTSTRAP') is not None
 
 
 class Main:
@@ -26,6 +31,16 @@ class Main:
         self.logger.info("-- All Data Initialization Complete Script ready--")
 
     def init_ocr(self):
+        if _is_android():
+            self.logger.info("Android environment detected, using on-device OCR.")
+            try:
+                from core.ocr.android_ocr import AndroidOcr
+                self.ocr = AndroidOcr(self.logger)
+                return True
+            except Exception as e:
+                self.logger.error(f"Android OCR init failed: {e}")
+                return False
+
         try:
             check_git(self.logger)
         except Exception as e:

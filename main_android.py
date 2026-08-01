@@ -83,8 +83,8 @@ def smoke_test() -> str:
     try:
         config = ConfigSet(config_dir="android")
         lines.append(f"config_dir=android ok")
-        lines.append(f"screenshot_method={getattr(config, 'screenshot_method', 'unknown')}")
-        lines.append(f"control_method={getattr(config, 'control_method', 'unknown')}")
+        lines.append(f"screenshot_method={getattr(config.config, 'screenshot_method', 'unknown')}")
+        lines.append(f"control_method={getattr(config.config, 'control_method', 'unknown')}")
     except Exception as e:
         _android_log(f"ConfigSet smoke failed: {e}\n{traceback.format_exc()}")
         lines.append(f"config_error: {e}")
@@ -99,8 +99,8 @@ def _configure_bridge(config):
     try:
         from java.lang import Class
         bridge = Class.forName("top.qwq123.baas.bridge.BaasBridge")
-        screenshot_method = getattr(config, 'screenshot_method', None)
-        control_method = getattr(config, 'control_method', None)
+        screenshot_method = getattr(config.config, 'screenshot_method', None)
+        control_method = getattr(config.config, 'control_method', None)
         if screenshot_method == 'shizuku' or control_method == 'shizuku':
             bridge.setMode("SHIZUKU")
             _android_log("Native bridge switched to SHIZUKU mode")
@@ -121,8 +121,8 @@ def _run_task_loop(config_dir: str):
         from core.config.config_set import ConfigSet
         config = ConfigSet(config_dir=config_dir)
         _android_log(f"ConfigSet created for {config_dir}")
-        _android_log(f"config screenshot_method={getattr(config, 'screenshot_method', 'unknown')}")
-        _android_log(f"config control_method={getattr(config, 'control_method', 'unknown')}")
+        _android_log(f"config screenshot_method={getattr(config.config, 'screenshot_method', 'unknown')}")
+        _android_log(f"config control_method={getattr(config.config, 'control_method', 'unknown')}")
         _configure_bridge(config)
     except Exception as e:
         _android_log(f"ConfigSet creation failed: {e}\n{traceback.format_exc()}")
@@ -131,8 +131,16 @@ def _run_task_loop(config_dir: str):
         return
 
     try:
-        from core.Baas_thread import Baas_thread
-        thread = Baas_thread(config)
+        from baas_main import Main
+        main_instance = Main(ocr_needed=["zh-cn"])
+        _android_log("Main instance created")
+        if main_instance.ocr is None:
+            _android_log("OCR initialization failed")
+            with _thread_lock:
+                _thread = None
+            return
+
+        thread = main_instance.get_thread(config)
         _android_log("Baas_thread created")
         _android_log(f"Baas_thread.package_name={getattr(thread, 'package_name', 'N/A')}")
         if not thread.init_all_data():

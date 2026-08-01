@@ -16,5 +16,6 @@ retry
 colorama
 deprecation
 packaging
+pygments>=2.18.0
 # lmdb is used for some caches; optional on Android
 # lmdb
