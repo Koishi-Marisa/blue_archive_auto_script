@@ -107,8 +107,8 @@ std::shared_ptr<ImageBuffer> ImageBuffer::fromJpeg(JNIEnv* env, jobject context,
 }
 
 std::vector<uint8_t> ImageBuffer::toJpeg(JNIEnv* env, int quality) const {
-    std::vector<uint8_t> empty;
-    if (empty()) return empty;
+    std::vector<uint8_t> emptyResult;
+    if (empty()) return emptyResult;
 
     // Create mutable Bitmap from RGBA pixels.
     jclass bitmapClass = env->FindClass("android/graphics/Bitmap");
@@ -125,14 +125,14 @@ std::vector<uint8_t> ImageBuffer::toJpeg(JNIEnv* env, int quality) const {
     env->DeleteLocalRef(configClass);
 
     void* pixels = nullptr;
-    if (AndroidBitmap_lockPixels(env, bitmap, &pixels) < 0) {
+    AndroidBitmapInfo info;
+    if (AndroidBitmap_getInfo(env, bitmap, &info) < 0 ||
+        AndroidBitmap_lockPixels(env, bitmap, &pixels) < 0) {
         env->DeleteLocalRef(bitmap);
         env->DeleteLocalRef(bitmapClass);
-        return empty;
+        return emptyResult;
     }
 
-    int format;
-    AndroidBitmap_getInfo(env, bitmap, &format);
     // The created bitmap is RGBA8888.
     std::memcpy(pixels, pixels_.data(), pixels_.size());
     AndroidBitmap_unlockPixels(env, bitmap);

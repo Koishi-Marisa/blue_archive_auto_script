@@ -1,5 +1,6 @@
 #pragma once
 
+#include <jni.h>
 #include <cstdint>
 #include <vector>
 #include <memory>
