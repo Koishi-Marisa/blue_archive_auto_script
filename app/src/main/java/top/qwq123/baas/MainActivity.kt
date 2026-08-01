@@ -321,6 +321,7 @@ fun MainScreen(
                         Text("Cpp RGB")
                     }
                     Button(onClick = {
+                        BaasCoreNative.nativeUpdateScreenshot()
                         val templ = BaasCoreNative.loadAssetTemplate(context, "ic_maa_logo.png")
                         if (templ != null) {
                             append("Cpp findTemplate: ${BaasCoreNative.nativeFindTemplate(templ, 0.7)}")
@@ -329,6 +330,38 @@ fun MainScreen(
                         }
                     }) {
                         Text("Cpp Template")
+                    }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = {
+                        val ok = BaasCoreNative.nativeRegisterFeature(
+                            "sample_rgb",
+                            "rgb_range",
+                            """{"x":100,"y":100,"r_min":0,"r_max":255,"g_min":0,"g_max":255,"b_min":0,"b_max":255}"""
+                        )
+                        append("Cpp registerFeature rgb: $ok")
+                    }) {
+                        Text("Reg RGB Feature")
+                    }
+                    Button(onClick = {
+                        append("Cpp featureAppear: ${BaasCoreNative.nativeFeatureAppear("sample_rgb")}")
+                    }) {
+                        Text("Check Feature")
+                    }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = {
+                        BaasCoreNative.nativeUpdateScreenshot()
+                        append("Cpp OCR: ${BaasCoreNative.nativeOcr(0, 0, 400, 200, "zh-cn", "").take(200)}")
+                    }) {
+                        Text("Cpp OCR")
+                    }
+                    Button(onClick = {
+                        append("Cpp AppearThenClick: ${BaasCoreNative.nativeAppearThenClick("sample_rgb", 540, 960, 3000, 300)}")
+                    }) {
+                        Text("AppearThenClick")
                     }
                 }
 

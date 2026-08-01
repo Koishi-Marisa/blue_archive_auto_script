@@ -2,8 +2,8 @@
 
 #include <jni.h>
 #include <cstdint>
-#include <vector>
 #include <memory>
+#include <vector>
 
 namespace baas {
 
@@ -25,6 +25,7 @@ struct MatchResult {
     double score = 0.0;
 };
 
+// Simple RGBA8888 image buffer.
 class ImageBuffer {
 public:
     ImageBuffer() = default;
@@ -32,9 +33,8 @@ public:
 
     int width() const { return width_; }
     int height() const { return height_; }
-    bool empty() const { return pixels_.empty(); }
+    bool empty() const { return width_ <= 0 || height_ <= 0 || pixels_.empty(); }
 
-    // Pixel in RGBA8888 format.
     const uint8_t* pixel(int x, int y) const;
     uint8_t* pixel(int x, int y);
 
@@ -42,11 +42,14 @@ public:
     uint8_t g(int x, int y) const;
     uint8_t b(int x, int y) const;
 
-    // Decode JPEG using Android BitmapFactory via JNI.
+    // Decode JPEG bytes using Android BitmapFactory.
     static std::shared_ptr<ImageBuffer> fromJpeg(JNIEnv* env, jobject context, const std::vector<uint8_t>& jpeg);
 
-    // Convert this buffer to a JPEG byte vector (quality 0-100).
+    // Encode to JPEG (quality 0-100) using Android Bitmap compress.
     std::vector<uint8_t> toJpeg(JNIEnv* env, int quality = 95) const;
+
+    // Crop a region into a new buffer.
+    std::shared_ptr<ImageBuffer> crop(const Rect& region) const;
 
 private:
     int width_ = 0;
@@ -54,7 +57,7 @@ private:
     std::vector<uint8_t> pixels_; // RGBA8888
 };
 
-// Simple normalized cross-correlation template matching.
+// Normalized cross-correlation template matching over RGB channels.
 MatchResult matchTemplate(const ImageBuffer& source, const ImageBuffer& templ, double threshold);
 
 } // namespace baas

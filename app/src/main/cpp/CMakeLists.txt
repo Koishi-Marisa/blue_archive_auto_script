@@ -12,9 +12,13 @@ find_library(jnigraphics-lib jnigraphics)
 add_library(
     baas-core
     SHARED
+    core/android_service.cpp
     core/baas_core.cpp
+    core/config.cpp
+    core/feature.cpp
     core/image.cpp
     core/jni_bridge.cpp
+    core/procedure.cpp
 )
 
 target_include_directories(baas-core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

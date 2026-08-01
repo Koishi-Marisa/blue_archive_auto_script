@@ -153,6 +153,9 @@ object BaasBridge {
     }
 
     @JvmStatic
+    fun getScreenSize(): String = screenshotSize()
+
+    @JvmStatic
     fun click(x: Int, y: Int): Boolean {
         return when (mode) {
             Mode.MEDIA_PROJECTION -> controlService?.click(x, y)
@@ -180,6 +183,26 @@ object BaasBridge {
     fun ocr(bytes: ByteArray, width: Int, height: Int, language: String): String {
         val service = ocrService ?: return "[]"
         val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return "[]"
+        val latch = java.util.concurrent.CountDownLatch(1)
+        var result = "[]"
+        service.recognize(bitmap, language) { json ->
+            result = json
+            latch.countDown()
+        }
+        latch.await()
+        return result
+    }
+
+    /**
+     * C++ core entry point for OCR.
+     * @param bytes JPEG image bytes
+     * @param language language tag, e.g. "zh-cn", "en-us"
+     * @param candidates ignored by ML Kit; kept for API compatibility
+     */
+    @JvmStatic
+    fun ocr(bytes: ByteArray, language: String, candidates: String): String {
+        val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return "[]"
+        val service = ocrService ?: return "[]"
         val latch = java.util.concurrent.CountDownLatch(1)
         var result = "[]"
         service.recognize(bitmap, language) { json ->

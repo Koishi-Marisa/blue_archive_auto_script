@@ -1,44 +1,56 @@
 #pragma once
 
+#include "core/config.h"
+#include "core/image.h"
+#include "core/feature.h"
+
 #include <jni.h>
+#include <functional>
+#include <map>
+#include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
-#include <mutex>
-#include <memory>
-
-#include "core/image.h"
 
 namespace baas {
 
+// Main entry point for the C++ BAAS core, inspired by BAAS_Cpp::BAAS.
+// Manages config, screenshot, control, features, and procedures.
 class BaasCore {
 public:
     static BaasCore& instance();
 
-    void init(JNIEnv* env, jobject android_context);
+    void init(JNIEnv* env, jobject context);
     bool isInitialized() const;
 
-    // Attach the current thread and return a valid JNIEnv.
-    JNIEnv* attachEnv();
+    bool loadConfig(const std::string& json);
+    Config& config();
+    const Config& config() const;
 
-    bool loadConfig(const std::string& jsonConfig);
-    std::string getConfigValue(const std::string& key) const;
+    // Screenshot
+    void updateScreenshot();
+    std::shared_ptr<ImageBuffer> latestScreenshot() const;
+    std::pair<int, int> screenshotSize() const;
 
-    // Screenshot returns JPEG bytes captured by the active Android service.
-    std::vector<uint8_t> screenshot();
-    std::pair<int, int> screenshotSize();
+    // Control
+    void click(int x, int y, const std::string& description = "");
+    void swipe(int x1, int y1, int x2, int y2, int durationMs);
+    void longClick(int x, int y, int durationMs);
 
-    // Inject input events through Shizuku.
-    bool click(int x, int y);
-    bool swipe(int x1, int y1, int x2, int y2, int durationMs);
-    bool longClick(int x, int y, int durationMs);
+    // Feature recognition
+    bool featureAppear(const std::string& featureName, Config& output);
+    void registerFeature(const std::string& name, std::shared_ptr<Feature> feature);
 
-    // Image matching on the latest screenshot.
-    MatchResult findTemplate(const std::vector<uint8_t>& templateJpeg, double threshold);
-    bool rgbInRange(int x, int y, int rMin, int rMax, int gMin, int gMax, int bMin, int bMax);
+    // OCR
+    std::string ocr(const Rect& region, const std::string& language, const std::string& candidates = "");
+    std::string ocrForSingleLine(const Rect& region, const std::string& language, const std::string& candidates = "");
 
-    // OCR is performed on the Java side; this stores the last OCR JSON result.
-    void setLastOcrResult(const std::string& json);
-    std::string getLastOcrResult() const;
+    // Module registration
+    void registerModule(const std::string& name, std::function<bool(BaasCore*)> impl);
+    bool solve(const std::string& name);
+
+    inline bool isRunning() const { return flagRun_; }
+    inline void stop() { flagRun_ = false; }
 
 private:
     BaasCore() = default;
@@ -48,13 +60,13 @@ private:
 
     mutable std::mutex mutex_;
     bool initialized_ = false;
-    JavaVM* javaVm_ = nullptr;
-    jobject context_ = nullptr;
+    bool flagRun_ = true;
 
-    std::vector<std::pair<std::string, std::string>> config_;
-    std::string lastOcrResult_;
+    Config config_;
+    std::shared_ptr<ImageBuffer> latestScreenshot_;
 
-    std::shared_ptr<ImageBuffer> lastScreenshot_;
+    std::map<std::string, std::shared_ptr<Feature>> features_;
+    std::map<std::string, std::function<bool(BaasCore*)>> modules_;
 };
 
 } // namespace baas

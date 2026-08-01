@@ -43,10 +43,7 @@ uint8_t ImageBuffer::b(int x, int y) const {
 }
 
 std::shared_ptr<ImageBuffer> ImageBuffer::fromJpeg(JNIEnv* env, jobject context, const std::vector<uint8_t>& jpeg) {
-    if (jpeg.empty()) {
-        LOGE("fromJpeg: empty input");
-        return nullptr;
-    }
+    if (jpeg.empty()) return nullptr;
 
     jclass bitmapFactoryClass = env->FindClass("android/graphics/BitmapFactory");
     jmethodID decodeMethod = env->GetStaticMethodID(bitmapFactoryClass, "decodeByteArray",
@@ -66,14 +63,12 @@ std::shared_ptr<ImageBuffer> ImageBuffer::fromJpeg(JNIEnv* env, jobject context,
 
     AndroidBitmapInfo info;
     if (AndroidBitmap_getInfo(env, bitmap, &info) < 0) {
-        LOGE("fromJpeg: AndroidBitmap_getInfo failed");
         env->DeleteLocalRef(bitmap);
         return nullptr;
     }
 
     void* pixels = nullptr;
     if (AndroidBitmap_lockPixels(env, bitmap, &pixels) < 0) {
-        LOGE("fromJpeg: AndroidBitmap_lockPixels failed");
         env->DeleteLocalRef(bitmap);
         return nullptr;
     }
@@ -102,7 +97,6 @@ std::shared_ptr<ImageBuffer> ImageBuffer::fromJpeg(JNIEnv* env, jobject context,
 
     AndroidBitmap_unlockPixels(env, bitmap);
     env->DeleteLocalRef(bitmap);
-
     return std::make_shared<ImageBuffer>(width, height, std::move(rgba));
 }
 
@@ -110,7 +104,6 @@ std::vector<uint8_t> ImageBuffer::toJpeg(JNIEnv* env, int quality) const {
     std::vector<uint8_t> emptyResult;
     if (empty()) return emptyResult;
 
-    // Create mutable Bitmap from RGBA pixels.
     jclass bitmapClass = env->FindClass("android/graphics/Bitmap");
     jmethodID createBitmap = env->GetStaticMethodID(bitmapClass, "createBitmap",
                                                     "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;");
@@ -124,8 +117,8 @@ std::vector<uint8_t> ImageBuffer::toJpeg(JNIEnv* env, int quality) const {
     env->DeleteLocalRef(argb8888);
     env->DeleteLocalRef(configClass);
 
-    void* pixels = nullptr;
     AndroidBitmapInfo info;
+    void* pixels = nullptr;
     if (AndroidBitmap_getInfo(env, bitmap, &info) < 0 ||
         AndroidBitmap_lockPixels(env, bitmap, &pixels) < 0) {
         env->DeleteLocalRef(bitmap);
@@ -133,11 +126,9 @@ std::vector<uint8_t> ImageBuffer::toJpeg(JNIEnv* env, int quality) const {
         return emptyResult;
     }
 
-    // The created bitmap is RGBA8888.
     std::memcpy(pixels, pixels_.data(), pixels_.size());
     AndroidBitmap_unlockPixels(env, bitmap);
 
-    // Compress to JPEG.
     jclass compressFormatClass = env->FindClass("android/graphics/Bitmap$CompressFormat");
     jfieldID jpegField = env->GetStaticFieldID(compressFormatClass, "JPEG",
                                                "Landroid/graphics/Bitmap$CompressFormat;");
@@ -169,6 +160,25 @@ std::vector<uint8_t> ImageBuffer::toJpeg(JNIEnv* env, int quality) const {
     return out;
 }
 
+std::shared_ptr<ImageBuffer> ImageBuffer::crop(const Rect& region) const {
+    if (empty()) return nullptr;
+    int x = std::max(0, region.x);
+    int y = std::max(0, region.y);
+    int w = std::min(region.width, width_ - x);
+    int h = std::min(region.height, height_ - y);
+    if (w <= 0 || h <= 0) return nullptr;
+
+    std::vector<uint8_t> rgba(static_cast<size_t>(w * h * 4));
+    for (int yy = 0; yy < h; ++yy) {
+        for (int xx = 0; xx < w; ++xx) {
+            auto src = pixel(x + xx, y + yy);
+            auto dst = &rgba[(yy * w + xx) * 4];
+            std::memcpy(dst, src, 4);
+        }
+    }
+    return std::make_shared<ImageBuffer>(w, h, std::move(rgba));
+}
+
 MatchResult matchTemplate(const ImageBuffer& source, const ImageBuffer& templ, double threshold) {
     MatchResult result;
     int sw = source.width();
@@ -176,18 +186,14 @@ MatchResult matchTemplate(const ImageBuffer& source, const ImageBuffer& templ, d
     int tw = templ.width();
     int th = templ.height();
 
-    if (sw < tw || sh < th || tw == 0 || th == 0) {
-        return result;
-    }
+    if (sw < tw || sh < th || tw == 0 || th == 0) return result;
 
-    const int channels = 4;
     int maxX = sw - tw;
     int maxY = sh - th;
     double bestScore = -1.0;
     int bestX = 0;
     int bestY = 0;
 
-    // Compute template mean.
     double templMean[3] = {0, 0, 0};
     for (int y = 0; y < th; ++y) {
         for (int x = 0; x < tw; ++x) {

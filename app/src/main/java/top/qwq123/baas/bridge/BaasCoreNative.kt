@@ -1,14 +1,13 @@
 package top.qwq123.baas.bridge
 
 import android.content.Context
-import android.graphics.BitmapFactory
 
 /**
- * JNI bridge to the C++ BAAS core.
+ * JNI bridge to the C++ BAAS core (architecture inspired by BAAS_Cpp).
  *
- * The native library `baas-core` exposes screenshot capture, input injection,
- * template matching, and configuration APIs. It internally calls back into
- * [BaasBridge] for Android-specific services (Shizuku screenshot/touch, OCR).
+ * The native library `baas-core` exposes config, screenshot, control,
+ * feature recognition, procedures, and OCR. It internally calls back into
+ * [BaasBridge] for Android-specific services (Shizuku screenshot/touch, MLKit OCR).
  */
 object BaasCoreNative {
 
@@ -24,6 +23,9 @@ object BaasCoreNative {
 
     @JvmStatic
     external fun nativeGetConfigValue(key: String): String
+
+    @JvmStatic
+    external fun nativeUpdateScreenshot()
 
     @JvmStatic
     external fun nativeScreenshot(): ByteArray?
@@ -52,20 +54,23 @@ object BaasCoreNative {
     ): Boolean
 
     @JvmStatic
+    external fun nativeOcr(x: Int, y: Int, w: Int, h: Int, language: String, candidates: String): String
+
+    @JvmStatic
+    external fun nativeRegisterFeature(name: String, type: String, jsonConfig: String): Boolean
+
+    @JvmStatic
+    external fun nativeFeatureAppear(name: String): Boolean
+
+    @JvmStatic
+    external fun nativeAppearThenClick(featureName: String, clickX: Int, clickY: Int, timeoutMs: Int, intervalMs: Int): Boolean
+
+    @JvmStatic
     external fun nativeGetVersion(): String
 
     /** Helper that decodes the last native screenshot size. */
     fun screenshotSizePair(): Pair<Int, Int> {
         return nativeScreenshotSize().split(",").mapNotNull { it.toIntOrNull() }
             .let { if (it.size == 2) it[0] to it[1] else 0 to 0 }
-    }
-
-    /** Decode the template asset bundled in the APK. */
-    fun loadAssetTemplate(context: Context, assetPath: String): ByteArray? {
-        return try {
-            context.assets.open(assetPath).use { it.readBytes() }
-        } catch (e: Exception) {
-            null
-        }
     }
 }
