@@ -322,7 +322,11 @@ fun MainScreen(
                     }
                     Button(onClick = {
                         BaasCoreNative.nativeUpdateScreenshot()
-                        val templ = BaasCoreNative.loadAssetTemplate(context, "ic_maa_logo.png")
+                        val templ = try {
+                            context.assets.open("ic_maa_logo.png").use { it.readBytes() }
+                        } catch (e: Exception) {
+                            null
+                        }
                         if (templ != null) {
                             append("Cpp findTemplate: ${BaasCoreNative.nativeFindTemplate(templ, 0.7)}")
                         } else {
